@@ -26,10 +26,25 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 once_cell = { workspace = true }
 
+# Property testing (conditional)
+proptest = { version = "1.4", optional = true }
+
+# Test utilities dependencies (conditional)
+tempfile = { version = "3.8", optional = true }
+tracing-subscriber = { workspace = true, optional = true }
+serde_yaml = { workspace = true, optional = true }
+
 [dev-dependencies]
 tokio-test = "0.4"
 proptest = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3.8"
+tracing-subscriber = { workspace = true }
+serde_yaml = { workspace = true }
+
+[features]
+default = []
+testing = ["tempfile", "tracing-subscriber", "serde_yaml", "proptest"]
 
 # Benchmarks will be added later
 # [[bench]]

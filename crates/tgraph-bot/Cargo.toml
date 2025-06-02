@@ -42,8 +42,13 @@ tokio-test = "0.4"
 proptest = "1.4"
 mockall = "0.12"
 criterion = { version = "0.5", features = ["html_reports"] }
+tgraph-common = { path = "../tgraph-common", features = ["testing"] }
 
 # Benchmarks will be added later
 # [[bench]]
 # name = "bot_performance"
 # harness = false
+
+[features]
+default = []
+testing = ["tgraph-common/testing"]

@@ -1,0 +1,48 @@
+# Configuration for cargo-tarpaulin code coverage tool
+
+[package.tgraph-bot-rs]
+# Enable all features for comprehensive testing
+features = "all"
+
+# Coverage configuration
+exclude-files = [
+    "target/*",
+    "*/target/*",
+    "*/tests/*",
+    "*/test_*.rs",
+    "*_test.rs",
+    "*/benches/*",
+]
+
+# Include all crates in the workspace
+include-tests = true
+
+# Output formats
+output-dir = "coverage/"
+output-formats = ["Xml", "Html", "Json"]
+
+# Coverage thresholds
+fail-under = 80.0
+
+# Timeout for tests (in seconds)
+timeout = 120
+
+# Engine configuration
+engine = "llvm"
+
+# Feature flags
+follow-exec = true
+post-args = ["--", "--test-threads=1"]
+
+# Ignore specific functions/modules
+ignore-panics = true
+ignore-config = true
+
+# Additional options
+verbose = true
+release = false
+
+# Exclude integration tests from main coverage
+[[package.tgraph-bot-rs.exclude]]
+name = "integration_test"
+reason = "Integration tests are tested separately"

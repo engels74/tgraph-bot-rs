@@ -3051,10 +3051,13 @@ dependencies = [
  "once_cell",
  "proptest",
  "serde",
+ "serde_yaml",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tokio-test",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -3126,6 +3129,8 @@ dependencies = [
  "serde",
  "tgraph-common",
  "thiserror 1.0.69",
+ "tokio",
+ "tokio-test",
  "tracing",
  "unic-langid",
 ]
