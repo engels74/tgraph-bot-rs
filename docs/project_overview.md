@@ -298,13 +298,3 @@ The bot implements state-of-the-art localization:
 • **Resource Management**: RAII patterns ensure proper cleanup of system resources
 
 • **Compilation**: Leverages Link-Time Optimization (LTO) and Profile-Guided Optimization (PGO)
-
-## Getting Started
-
-**Prerequisites:**
-- Rust 1.87 or later (for async trait support)
-- Discord bot token with appropriate permissions
-- Tautulli API access credentials
-- Running Plex Media Server instance
-
-
