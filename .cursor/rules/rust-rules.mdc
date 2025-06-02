@@ -1,0 +1,18 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Follow these guidelines for Rust development:
+
+- Use `cargo` for all Rust commands (e.g., `cargo run`, `cargo test`, `cargo build`, `cargo add`).
+- Adhere to Rust 2024 edition (or latest stable) best practices.
+- Employ TDD (test-driven development) with `cargo test`.
+- Ensure code quality using `cargo clippy` for linting and fix all warnings.
+- Format code using `cargo fmt` before committing.
+- Leverage Rust's ownership system and type safety - avoid `unsafe` blocks unless absolutely necessary.
+- Use proper error handling with `Result<T, E>` and `Option<T>` types; avoid `unwrap()` and `expect()` in production code.
+- Prefer `#[allow(clippy::...)]` or `#[allow(dead_code)]` attributes only when necessary and well-justified.
+- Use `#[cfg(test)]` for test-only code and `#[cfg(feature = "...")]` for feature gates.
+- Follow idiomatic Rust patterns: prefer iterators over loops, use pattern matching, leverage traits and generics appropriately.
+- Document public APIs with `///` doc comments and include examples where helpful.
