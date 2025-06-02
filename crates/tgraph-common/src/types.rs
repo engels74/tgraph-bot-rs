@@ -393,6 +393,30 @@ pub enum TGraphError {
     Serialization(String),
 }
 
+/// Utilities-specific error type.
+#[derive(thiserror::Error, Debug)]
+pub enum UtilsError {
+    /// Time range validation error.
+    #[error("Invalid time range: start {start} must be before end {end}")]
+    InvalidTimeRange { start: String, end: String },
+
+    /// Timezone conversion error.
+    #[error("Invalid timezone: {timezone}")]
+    InvalidTimezone { timezone: String },
+
+    /// Timeout error.
+    #[error("Operation timed out after {duration_ms}ms")]
+    Timeout { duration_ms: u64 },
+
+    /// Retry operation failed.
+    #[error("Operation failed after {attempts} attempts. Last error: {last_error}")]
+    RetryFailed { attempts: u32, last_error: String },
+
+    /// Unicode processing error.
+    #[error("Unicode processing error: {message}")]
+    Unicode { message: String },
+}
+
 /// Common result type for the application.
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 

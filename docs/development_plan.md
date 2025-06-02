@@ -43,17 +43,18 @@
     - [x] **TDD: Verify Tests Pass**
     - [x] **Refactor:** Ensure zero-cost abstractions and minimal runtime overhead
 
-- [ ] **Feature: Shared Utilities**
-  - [ ] **TDD: Define Test Cases:**
-    - [ ] Test case: Date/time utilities handle edge cases correctly
-    - [ ] Test case: String manipulation functions are Unicode-safe
-    - [ ] Test case: Async utilities properly handle cancellation
-  - [ ] **TDD: Write Failing Tests** in `tgraph-common/tests/utils_test.rs`
-  - [ ] **Implementation:**
-    - [ ] Create time manipulation utilities using chrono
-    - [ ] Implement string sanitization functions
-    - [ ] Design async helper functions for common patterns
-  - [ ] **TDD: Verify Tests Pass**
+- [x] **Feature: Shared Utilities**
+  - [x] **TDD: Define Test Cases:**
+    - [x] Test case: Date/time utilities handle edge cases correctly
+    - [x] Test case: String manipulation functions are Unicode-safe
+    - [x] Test case: Async utilities properly handle cancellation
+  - [x] **TDD: Write Failing Tests** in `tgraph-common/tests/utils_test.rs`
+  - [x] **Implementation:**
+    - [x] Create time manipulation utilities using chrono
+    - [x] Implement string sanitization functions
+    - [x] Design async helper functions for common patterns
+  - [x] **TDD: Verify Tests Pass**
+    - [x] **Refactor:** Ensure zero-cost abstractions and minimal runtime overhead
 
 ## Phase 3: Configuration Management System
 

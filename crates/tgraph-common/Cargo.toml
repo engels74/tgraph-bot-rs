@@ -26,6 +26,12 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 once_cell = { workspace = true }
 
+# Unicode handling dependencies
+unicode-normalization = "0.1"
+unicode-segmentation = "1.10"
+unicode-bidi = "0.3"
+chrono-tz = "0.8"
+
 # Property testing (conditional)
 proptest = { version = "1.4", optional = true }
 
