@@ -24,13 +24,13 @@
     "rust-analyzer.hover.links.enable": true,
     "rust-analyzer.workspace.symbol.search.scope": "workspace_and_dependencies",
     "rust-analyzer.workspace.symbol.search.kind": "all_symbols",
-    
+
     // Editor Configuration
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true,
     "editor.codeActionsOnSave": {
-        "source.fixAll.rust": true,
-        "source.organizeImports": true
+        "source.fixAll.rust": "explicit",
+        "source.organizeImports": "explicit"
     },
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
     "editor.tabSize": 4,
@@ -42,7 +42,7 @@
     "editor.bracketPairColorization.enabled": true,
     "editor.guides.bracketPairs": true,
     "editor.guides.indentation": true,
-    
+
     // File Configuration
     "files.autoSave": "onFocusChange",
     "files.trimTrailingWhitespace": true,
@@ -57,7 +57,7 @@
         "**/target/**": true,
         "**/.cargo/**": true
     },
-    
+
     // Language Specific Settings
     "[rust]": {
         "editor.defaultFormatter": "rust-lang.rust-analyzer",
@@ -85,25 +85,25 @@
         "editor.wordWrap": "wordWrapColumn",
         "editor.wordWrapColumn": 80
     },
-    
+
     // Terminal Configuration
     "terminal.integrated.shell.linux": "/bin/bash",
     "terminal.integrated.env.linux": {
         "RUST_BACKTRACE": "1"
     },
-    
+
     // Testing Configuration
     "testing.automaticallyOpenPeekView": "never",
     "testing.openTesting": "neverOpen",
-    
+
     // Git Configuration
     "git.autofetch": true,
     "git.enableSmartCommit": true,
     "git.confirmSync": false,
-    
+
     // Discord Bot Development
     "discord.enabled": false,
-    
+
     // Project Specific
     "search.exclude": {
         "**/target": true,
@@ -111,20 +111,20 @@
         "**/.git": true,
         "**/node_modules": true
     },
-    
+
     // Performance Configuration
     "extensions.ignoreRecommendations": false,
     "typescript.preferences.includePackageJsonAutoImports": "off",
     "javascript.preferences.includePackageJsonAutoImports": "off",
-    
+
     // Error Lens Configuration (if installed)
     "errorLens.enabledDiagnosticLevels": ["error", "warning"],
     "errorLens.delay": 500,
-    
+
     // Todo Tree Configuration (if installed)
     "todo-tree.general.tags": [
         "TODO",
-        "FIXME", 
+        "FIXME",
         "HACK",
         "BUG",
         "NOTE",
@@ -135,5 +135,6 @@
     "todo-tree.highlights.defaultHighlight": {
         "icon": "alert",
         "type": "tag"
-    }
-} 
+    },
+    "testing.automaticallyOpenTestResults": "neverOpen"
+}
