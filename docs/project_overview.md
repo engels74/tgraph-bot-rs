@@ -1,21 +1,21 @@
-### TGraph Bot Rust Edition - Project Overview
+# TGraph Bot Rust Edition - Project Overview
 
-#### Introduction
+## Introduction
 
-TGraph Bot Rust Edition is a high-performance Discord bot engineered to automatically generate and post Tautulli graphs to designated Discord channels. Built with Rust's safety guarantees and zero-cost abstractions, it delivers exceptional performance while providing comprehensive visualizations and statistics about your Plex Media Server's activity. The project exemplifies modern Rust patterns, rigorous test-driven development (TDD), and seamless internationalization support through the Fluent localization system.
+TGraph Bot Rust Edition is a high-performance Discord bot engineered to automatically generate and post Tautulli graphs to designated Discord channels. Built with Rust's safety guarantees and zero-cost abstractions, it delivers exceptional performance while providing comprehensive visualizations and statistics about your Plex Media Server's activity. The project leverages **Poise** (built on Serenity) for Discord interactions, exemplifies modern Rust patterns, rigorous test-driven development (TDD), and seamless internationalization support through the Fluent localization system.
 
-#### Key Features
+## Key Features
 
 TGraph Bot Rust Edition delivers:
 
 - High-performance automated generation and scheduled posting of Tautulli graphs leveraging Rust's async runtime
 - Fully customizable graph rendering with compile-time validated color schemes, grid configurations, and annotation settings
-- Type-safe Discord slash commands (`/about`, `/config`, `/my_stats`, `/update_graphs`, and `/uptime`) with permission management through trait-based abstractions
+- **Type-safe Discord slash commands using Poise framework** (`/about`, `/config`, `/my_stats`, `/update_graphs`, and `/uptime`) with built-in permission management
 - Zero-copy user statistics generation with efficient direct messaging via async channels
 - Internationalization using Fluent's powerful localization framework with compile-time message validation
 - Comprehensive testing strategy combining unit tests, integration tests, and property-based testing with proptest
 
-#### Project Architecture
+## Project Architecture
 
 The project follows Rust's workspace structure with multiple crates for modularity and compilation efficiency:
 
@@ -44,13 +44,13 @@ tgraph-bot/
 │   │   ├── Cargo.toml
 │   │   ├── src/
 │   │   │   ├── lib.rs
+│   │   │   ├── framework.rs
+│   │   │   ├── commands.rs
 │   │   │   ├── about.rs
 │   │   │   ├── config.rs
 │   │   │   ├── my_stats.rs
 │   │   │   ├── update_graphs.rs
-│   │   │   ├── uptime.rs
-│   │   │   ├── permissions.rs
-│   │   │   └── framework.rs
+│   │   │   └── uptime.rs
 │   │   └── tests/
 │   ├── tgraph-config/           # Configuration management crate
 │   │   ├── Cargo.toml
@@ -97,9 +97,9 @@ tgraph-bot/
 └── target/                      # Build artifacts
 ```
 
-#### Crate Descriptions
+## Crate Descriptions
 
-##### Workspace Root
+### Workspace Root
 
 - **Cargo.toml**: Defines the workspace members and shared dependencies, enabling consistent versioning and feature flags across all crates
 - **Cargo.lock**: Ensures reproducible builds by locking exact dependency versions
@@ -107,28 +107,28 @@ tgraph-bot/
 - **.clippy.toml**: Configures Clippy lints for enhanced code quality and idiomaticity
 - **fluent/**: Contains localization files in Fluent format, supporting complex pluralization and context-aware translations
 
-##### Main Binary Crate (`tgraph-bot`)
+### Main Binary Crate (`tgraph-bot`)
 
 The entry point crate orchestrates the entire application lifecycle:
 
 - **main.rs**: Initializes the tokio runtime, sets up structured logging with tracing, and launches the bot
-- **bot.rs**: Implements the core bot logic using the serenity framework, managing event handlers and background tasks
+- **bot.rs**: Implements the core bot logic using the Poise framework, managing the Discord client and background tasks
 - **error.rs**: Defines the application-wide error types using thiserror, ensuring comprehensive error handling
 - **lib.rs**: Exposes the public API for integration testing
 
-##### Commands Crate (`tgraph-commands`)
+### Commands Crate (`tgraph-commands`)
 
-Implements Discord slash commands with type-safe builders:
+Implements Discord slash commands with **Poise's type-safe command framework**:
 
-- **framework.rs**: Defines the command framework trait and registration logic
-- **permissions.rs**: Implements role-based access control using bitflags for efficient permission checking
-- **about.rs**: `/about` command implementation with compile-time embedded metadata
-- **config.rs**: `/config` subcommands for runtime configuration management with atomic updates
-- **my_stats.rs**: `/my_stats` command with user authentication and rate limiting
-- **update_graphs.rs**: `/update_graphs` administrative command with audit logging
-- **uptime.rs**: `/uptime` command using std::time::Instant for precise measurements
+- **framework.rs**: Defines Poise framework setup and command registration logic
+- **commands.rs**: Exports all command functions for registration with the framework
+- **about.rs**: `/about` command implementation using Poise's command macro with automatic help generation
+- **config.rs**: `/config` subcommands with Poise's built-in subcommand support for viewing and editing configuration
+- **my_stats.rs**: `/my_stats` command with user parameter parsing and DM support using Poise's argument system
+- **update_graphs.rs**: `/update_graphs` administrative command with Poise's permission checks
+- **uptime.rs**: `/uptime` command accessing framework data through Poise's context
 
-##### Configuration Crate (`tgraph-config`)
+### Configuration Crate (`tgraph-config`)
 
 Provides type-safe configuration management:
 
@@ -138,7 +138,7 @@ Provides type-safe configuration management:
 - **defaults.rs**: Type-safe default values using const functions
 - **cache.rs**: Thread-safe configuration caching with arc-swap for lock-free reads
 
-##### Graph Generation Crate (`tgraph-graphs`)
+### Graph Generation Crate (`tgraph-graphs`)
 
 Handles all graph rendering logic:
 
@@ -148,21 +148,21 @@ Handles all graph rendering logic:
 - **data_fetcher.rs**: Implements efficient Tautulli API client with connection pooling
 - Individual graph modules implement specific visualizations using plotters for native Rust rendering
 
-##### Internationalization Crate (`tgraph-i18n`)
+### Internationalization Crate (`tgraph-i18n`)
 
 Provides compile-time validated translations:
 
 - **loader.rs**: Fluent bundle initialization with lazy static loading
 - **messages.rs**: Type-safe message accessors generated via build script
 
-##### Common Utilities Crate (`tgraph-common`)
+### Common Utilities Crate (`tgraph-common`)
 
 Shared types and utilities:
 
 - **types.rs**: Common type definitions and newtype wrappers for domain modeling
 - **utils.rs**: Shared utility functions with zero-cost abstractions
 
-#### Configuration Schema
+## Configuration Schema
 
 The configuration system leverages Rust's type system for validation:
 
@@ -225,7 +225,7 @@ rate_limiting:
   my_stats_global_cooldown_seconds: 60
 ```
 
-#### Rust Best Practices
+## Rust Best Practices
 
 The project exemplifies modern Rust patterns:
 
@@ -243,7 +243,25 @@ The project exemplifies modern Rust patterns:
 
 • **Trait Objects**: Strategic use of dynamic dispatch only where flexibility is required
 
-#### Test-Driven Development Strategy
+## Poise Framework Integration
+
+The bot leverages Poise's powerful features for Discord interaction:
+
+• **Unified Command Definition**: Single function signature works for both prefix and slash commands
+
+• **Type-Safe Arguments**: Command parameters use normal Rust types with automatic parsing and validation
+
+• **Edit Tracking**: When users edit their command message, the bot automatically updates its response
+
+• **Built-in Cooldowns**: Per-user and global cooldowns are handled by the framework
+
+• **Subcommand Support**: Natural subcommand hierarchies with the `/config view` and `/config edit` pattern
+
+• **Permission Checks**: Declarative permission requirements using Poise's check system
+
+• **Context Data**: Shared application state accessible in all commands through Poise's context
+
+## Test-Driven Development Strategy
 
 The project follows rigorous TDD practices tailored for Rust:
 
@@ -255,7 +273,7 @@ The project follows rigorous TDD practices tailored for Rust:
 6. **Mocking**: Strategic use of mockall for external service testing
 7. **Coverage**: Enforces minimum coverage thresholds with tarpaulin
 
-#### Internationalization Architecture
+## Internationalization Architecture
 
 The bot implements state-of-the-art localization:
 
@@ -271,7 +289,7 @@ The bot implements state-of-the-art localization:
 
 • **Continuous Localization**: Integrated with translation management platforms via Fluent's toolchain
 
-#### Performance Characteristics
+## Performance Characteristics
 
 • **Memory Efficiency**: Zero-copy parsing where possible, arena allocators for graph data
 
@@ -281,19 +299,12 @@ The bot implements state-of-the-art localization:
 
 • **Compilation**: Leverages Link-Time Optimization (LTO) and Profile-Guided Optimization (PGO)
 
-#### Getting Started
+## Getting Started
 
 **Prerequisites:**
-- Rust 1.75 or later (for async trait support)
+- Rust 1.87 or later (for async trait support)
 - Discord bot token with appropriate permissions
 - Tautulli API access credentials
 - Running Plex Media Server instance
 
-**Development Setup:**
 
-1. Clone the repository and navigate to the project root
-2. Build the project with `cargo build --release`
-3. Copy configuration template (`config/config.yml.sample` to `config/config.yml`)
-4. Configure your credentials and preferences
-5. Run the bot with `cargo run --release`
-6. Execute tests with `cargo test --workspace`

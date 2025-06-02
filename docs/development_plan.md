@@ -162,71 +162,78 @@
     - [ ] Create consistent styling system
   - [ ] **TDD: Verify Tests Pass**
 
-## Phase 6: Discord Command Framework
+## Phase 6: Discord Command Framework with Poise
 
-- [ ] **Module: `tgraph-commands` Architecture**
-  - [ ] **Feature: Command Framework Trait**
+- [ ] **Module: `tgraph-commands` Architecture with Poise**
+  - [ ] **Feature: Poise Framework Setup**
     - [ ] **TDD: Define Test Cases:**
-      - [ ] Test case: Commands register correctly with Discord
-      - [ ] Test case: Permission checks enforce access control
-      - [ ] Test case: Command validation catches invalid inputs
+      - [ ] Test case: Commands register correctly with Discord via Poise
+      - [ ] Test case: Command parameters are parsed with correct types
+      - [ ] Test case: Subcommands work as expected
+      - [ ] Test case: Permission checks integrate with Poise's check system
     - [ ] **TDD: Write Failing Tests** in `tgraph-commands/tests/framework_test.rs`
     - [ ] **Implementation:**
-      - [ ] Design command trait with serenity integration
-      - [ ] Create macro for command registration
-      - [ ] Implement middleware system for cross-cutting concerns
+      - [ ] Set up Poise framework with custom Data and Error types
+      - [ ] Configure command prefix and slash command settings
+      - [ ] Implement shared command context and utilities
+      - [ ] Design command registration strategy (global vs guild)
     - [ ] **TDD: Verify Tests Pass**
 
-- [ ] **Feature: Permission System with Bitflags**
+- [ ] **Feature: Command Implementation with Poise Macros**
   - [ ] **TDD: Define Test Cases:**
-    - [ ] Test case: Permission combinations work correctly
-    - [ ] Test case: Role-based checks are efficient
-    - [ ] Test case: Permission inheritance follows Discord model
-  - [ ] **TDD: Write Failing Tests** in `tgraph-commands/tests/permissions_test.rs`
-  - [ ] **Implementation:**
-    - [ ] Design permission flags using bitflags crate
-    - [ ] Create permission resolver with caching
-    - [ ] Implement audit logging for permission checks
-  - [ ] **TDD: Verify Tests Pass**
-
-- [ ] **Feature: Individual Command Implementations**
-  - [ ] **TDD: Define Test Cases for Each Command:**
-    - [ ] Test case: Command executes successfully with valid input
-    - [ ] Test case: Error handling provides useful feedback
-    - [ ] Test case: Rate limiting prevents abuse
-    - [ ] Test case: Commands respect cancellation tokens
+    - [ ] Test case: Command functions work with Poise's `#[poise::command]` macro
+    - [ ] Test case: Command descriptions and parameters are properly defined
+    - [ ] Test case: Cooldowns are enforced using Poise's built-in system
+    - [ ] Test case: Subcommands are properly nested
   - [ ] **TDD: Write Failing Tests** for each command
   - [ ] **Implementation:**
-    - [ ] Implement each command following the framework
-    - [ ] Design consistent error responses
-    - [ ] Create command-specific validations
+    - [ ] Implement `/about` with Poise command macro
+    - [ ] Create `/config` with subcommands using Poise's subcommand support
+    - [ ] Build `/my_stats` with user parameter and DM support
+    - [ ] Design `/update_graphs` with admin permission checks
+    - [ ] Implement `/uptime` accessing framework start time
   - [ ] **TDD: Verify Tests Pass**
 
-## Phase 7: Bot Core and Event Loop
+- [ ] **Feature: Edit Tracking and Response Updates**
+  - [ ] **TDD: Define Test Cases:**
+    - [ ] Test case: Message edits trigger command re-execution
+    - [ ] Test case: Bot responses update when user edits command
+    - [ ] Test case: Edit tracking respects configured time window
+  - [ ] **TDD: Write Failing Tests** in `tgraph-commands/tests/edit_tracking_test.rs`
+  - [ ] **Implementation:**
+    - [ ] Configure Poise's edit tracker with time-based expiry
+    - [ ] Implement response caching for edit updates
+    - [ ] Handle edit conflicts gracefully
+  - [ ] **TDD: Verify Tests Pass**
 
-- [ ] **Module: `tgraph-bot` Main Application**
-  - [ ] **Feature: Bot Initialization and Lifecycle**
+## Phase 7: Bot Core with Poise Integration
+
+- [ ] **Module: `tgraph-bot` Main Application with Poise**
+  - [ ] **Feature: Poise Client Setup and Configuration**
     - [ ] **TDD: Define Test Cases:**
-      - [ ] Test case: Bot starts up correctly with valid config
-      - [ ] Test case: Graceful shutdown handles pending operations
-      - [ ] Test case: Resource cleanup prevents leaks
-    - [ ] **TDD: Write Failing Tests** in `tgraph-bot/tests/lifecycle_test.rs`
+      - [ ] Test case: Poise framework initializes with correct intents
+      - [ ] Test case: Commands are registered globally or per-guild as configured
+      - [ ] Test case: Framework options are properly applied
+      - [ ] Test case: Error handler processes all error types correctly
+    - [ ] **TDD: Write Failing Tests** in `tgraph-bot/tests/poise_setup_test.rs`
     - [ ] **Implementation:**
-      - [ ] Design application state management
-      - [ ] Implement structured startup sequence
-      - [ ] Create shutdown coordinator with tokio
+      - [ ] Create Poise framework builder with options
+      - [ ] Configure prefix and slash command settings
+      - [ ] Set up command registration strategy
+      - [ ] Implement custom error handler
+      - [ ] Configure intents and cache settings
     - [ ] **TDD: Verify Tests Pass**
 
-- [ ] **Feature: Event Handler Architecture**
+- [ ] **Feature: Application State Management**
   - [ ] **TDD: Define Test Cases:**
-    - [ ] Test case: Events are processed in correct order
-    - [ ] Test case: Event handlers don't block each other
-    - [ ] Test case: Error in one handler doesn't affect others
-  - [ ] **TDD: Write Failing Tests** in `tgraph-bot/tests/events_test.rs`
+    - [ ] Test case: Application state is accessible in all commands
+    - [ ] Test case: State updates are thread-safe
+    - [ ] Test case: Resource cleanup happens on shutdown
+  - [ ] **TDD: Write Failing Tests** in `tgraph-bot/tests/state_test.rs`
   - [ ] **Implementation:**
-    - [ ] Design event routing system
-    - [ ] Implement concurrent event processing
-    - [ ] Create event metrics and monitoring
+    - [ ] Design application state structure for Poise Data type
+    - [ ] Implement state initialization in setup callback
+    - [ ] Create state access patterns for commands
   - [ ] **TDD: Verify Tests Pass**
 
 ## Phase 8: Scheduling and Background Tasks
@@ -242,6 +249,7 @@
     - [ ] Design cron-like scheduler using tokio intervals
     - [ ] Implement schedule persistence and recovery
     - [ ] Create schedule conflict resolution
+    - [ ] Integrate with Poise's event loop
   - [ ] **TDD: Verify Tests Pass**
 
 - [ ] **Feature: Background Task Management**
