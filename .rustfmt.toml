@@ -1,0 +1,27 @@
+# TGraph Bot Rust Edition - Rustfmt Configuration
+# High-performance Discord bot formatting standards
+
+# Edition and stability
+edition = "2021"
+
+# Basic formatting
+hard_tabs = false
+tab_spaces = 4
+max_width = 100
+use_small_heuristics = "Default"
+
+# Function and method formatting
+fn_params_layout = "Tall"
+force_explicit_abi = true
+
+# String and array formatting
+array_width = 60
+chain_width = 60
+
+# Whitespace and newlines
+newline_style = "Unix"
+
+# Performance-critical settings for async/await patterns
+short_array_element_width_threshold = 10
+use_field_init_shorthand = true
+use_try_shorthand = false

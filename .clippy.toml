@@ -1,0 +1,42 @@
+# TGraph Bot Rust Edition - Clippy Configuration
+# High-performance Discord bot lint settings
+
+# Performance and efficiency
+type-complexity-threshold = 300
+single-char-binding-names-threshold = 4
+trivial-copy-size-limit = 64
+pass-by-value-size-limit = 256
+too-many-arguments-threshold = 7
+too-many-lines-threshold = 150
+
+# Async and concurrency patterns
+future-size-threshold = 64000
+
+# String and text handling (important for Discord message formatting)
+max-suggested-slice-pattern-length = 3
+literal-representation-threshold = 10
+
+# Error handling and documentation
+doc-valid-idents = ["TGraph", "Tautulli", "Poise", "API", "JSON", "YAML", "HTTP", "REST", "OAuth", "JWT", "UUID", "URL", "URI", "SQL", "TCP", "UDP", "TLS", "SSL", "WebSocket", "gRPC", "RPC", "CLI", "GUI", "UI", "UX", "AI", "ML", "NLP", "CPU", "GPU", "RAM", "SSD", "HDD", "OS", "VM", "DNS", "CDN", "SDK", "API", "JWT", "OAuth2", "HTTPS", "WSS"]
+
+# Naming conventions
+upper-case-acronyms-aggressive = true
+
+# Cognitive complexity for maintainability
+cognitive-complexity-threshold = 30
+
+# Arithmetic operations safety
+arithmetic-side-effects-allowed = ["tokio", "futures", "async", "await"]
+
+# Avoid suggestions for certain patterns that might impact performance
+avoid-breaking-exported-api = true
+check-private-items = true
+
+# Enum variant naming (for Discord API consistency)
+enum-variant-name-threshold = 3
+
+# Stack allocation limits (important for async contexts)
+array-size-threshold = 1024
+
+# Collection efficiency
+vec-box-size-threshold = 4096

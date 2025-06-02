@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/tgraph-bot",
-    "crates/tgraph-commands", 
+    "crates/tgraph-commands",
     "crates/tgraph-config",
     "crates/tgraph-graphs",
     "crates/tgraph-i18n",
@@ -12,7 +12,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.80"
 authors = ["engels74 <engels74@tuta.io>"]
 license = "MIT"
 repository = "https://github.com/engels74/tgraph-bot-rs"
@@ -31,7 +31,7 @@ futures = "0.3"
 poise = "0.6"
 serenity = { version = "0.12", default-features = false, features = [
     "client",
-    "gateway", 
+    "gateway",
     "rustls_backend",
     "model",
     "cache",

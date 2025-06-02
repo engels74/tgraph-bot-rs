@@ -1,0 +1,41 @@
+{
+    "recommendations": [
+        // Essential Rust Development
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb",
+        "serayuzgur.crates",
+
+        // Code Quality and Formatting
+        "tamasfe.even-better-toml",
+        "esbenp.prettier-vscode",
+        "redhat.vscode-yaml",
+        "usernamehw.errorlens",
+
+        // Git and Version Control
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+
+        // Development Utilities
+        "gruntfuggly.todo-tree",
+        "aaron-bond.better-comments",
+        "wayou.vscode-todo-highlight",
+        "ms-vscode.test-adapter-converter",
+
+        // Documentation
+        "yzhang.markdown-all-in-one",
+        "shd101wyy.markdown-preview-enhanced",
+
+        // Configuration Files
+        "ms-vscode.vscode-json",
+        "redhat.vscode-yaml",
+
+        // Optional but helpful
+        "ms-vscode-remote.remote-containers",
+        "ms-vscode-remote.remote-ssh",
+        "ms-vscode-remote.remote-wsl"
+    ],
+    "unwantedRecommendations": [
+        "ms-vscode.cpptools",
+        "ms-dotnettools.csharp"
+    ]
+}

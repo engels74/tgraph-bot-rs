@@ -1,0 +1,97 @@
+# TGraph Bot Rust Edition - Pre-commit Configuration
+# Ensures code quality and consistency before commits
+
+repos:
+  # Rust formatting and linting
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: Cargo Format
+        entry: cargo fmt
+        language: system
+        types: [rust]
+        pass_filenames: false
+        description: "Format Rust code using rustfmt"
+
+      - id: cargo-clippy
+        name: Cargo Clippy
+        entry: cargo clippy
+        language: system
+        args: [--all-targets, --all-features, --, -D, warnings]
+        types: [rust]
+        pass_filenames: false
+        description: "Lint Rust code using clippy"
+
+      - id: cargo-check
+        name: Cargo Check
+        entry: cargo check
+        language: system
+        args: [--all-targets, --all-features]
+        types: [rust]
+        pass_filenames: false
+        description: "Check Rust code for compilation errors"
+
+      - id: cargo-test-compile
+        name: Cargo Test Compilation
+        entry: cargo test
+        language: system
+        args: [--all-targets, --all-features, --no-run]
+        types: [rust]
+        pass_filenames: false
+        description: "Compile tests to catch compilation errors"
+
+  # General formatting and quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        description: "Remove trailing whitespace"
+
+      - id: end-of-file-fixer
+        description: "Ensure files end with newline"
+
+      - id: check-yaml
+        description: "Validate YAML files"
+        args: [--allow-multiple-documents]
+
+      - id: check-toml
+        description: "Validate TOML files"
+
+      - id: check-json
+        description: "Validate JSON files"
+
+      - id: check-merge-conflict
+        description: "Check for merge conflict markers"
+
+      - id: check-case-conflict
+        description: "Check for case conflicts"
+
+      - id: mixed-line-ending
+        description: "Check for mixed line endings"
+        args: [--fix=lf]
+
+  # Markdown formatting (for documentation)
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        description: "Lint Markdown files"
+        args: [--fix]
+
+# Global configuration
+default_stages: [commit]
+fail_fast: false
+minimum_pre_commit_version: "3.0.0"
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
