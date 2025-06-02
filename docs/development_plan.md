@@ -28,20 +28,20 @@
 
 ## Phase 2: Common Utilities and Type System
 
-- [ ] **Module: `tgraph-common` Crate Foundation**
+- [x] **Module: `tgraph-common` Crate Foundation**
 
-  - [ ] **Feature: Core Type Definitions**
-    - [ ] **TDD: Define Test Cases:**
-      - [ ] Test case: Newtype wrappers implement expected traits (Display, Debug, Serialize, Deserialize)
-      - [ ] Test case: Type conversions are safe and validated
-      - [ ] Test case: Domain types enforce invariants
-    - [ ] **TDD: Write Failing Tests** in `tgraph-common/tests/types_test.rs`
-    - [ ] **Implementation:**
-      - [ ] Define newtype wrappers for IDs, timestamps, and domain values
-      - [ ] Implement custom error types using thiserror
-      - [ ] Create result type aliases for consistent error handling
-    - [ ] **TDD: Verify Tests Pass**
-    - [ ] **Refactor:** Ensure zero-cost abstractions and minimal runtime overhead
+  - [x] **Feature: Core Type Definitions**
+    - [x] **TDD: Define Test Cases:**
+      - [x] Test case: Newtype wrappers implement expected traits (Display, Debug, Serialize, Deserialize)
+      - [x] Test case: Type conversions are safe and validated
+      - [x] Test case: Domain types enforce invariants
+    - [x] **TDD: Write Failing Tests** in `tgraph-common/tests/types_test.rs`
+    - [x] **Implementation:**
+      - [x] Define newtype wrappers for IDs, timestamps, and domain values
+      - [x] Implement custom error types using thiserror
+      - [x] Create result type aliases for consistent error handling
+    - [x] **TDD: Verify Tests Pass**
+    - [x] **Refactor:** Ensure zero-cost abstractions and minimal runtime overhead
 
 - [ ] **Feature: Shared Utilities**
   - [ ] **TDD: Define Test Cases:**

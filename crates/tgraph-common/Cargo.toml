@@ -41,6 +41,7 @@ criterion = { version = "0.5", features = ["html_reports"] }
 tempfile = "3.8"
 tracing-subscriber = { workspace = true }
 serde_yaml = { workspace = true }
+serde_json = { workspace = true }
 
 [features]
 default = []
