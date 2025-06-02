@@ -1,0 +1,45 @@
+[package]
+name = "tgraph-commands"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Discord command implementations using Poise framework for TGraph Bot"
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "tgraph_commands"
+path = "src/lib.rs"
+
+[dependencies]
+# Workspace crates
+tgraph-config = { path = "../tgraph-config" }
+tgraph-graphs = { path = "../tgraph-graphs" }
+tgraph-i18n = { path = "../tgraph-i18n" }
+tgraph-common = { path = "../tgraph-common" }
+
+# External dependencies from workspace
+tokio = { workspace = true }
+poise = { workspace = true }
+serenity = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+proptest = "1.4"
+mockall = "0.12"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Benchmarks will be added later
+# [[bench]]
+# name = "command_performance"
+# harness = false
