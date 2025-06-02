@@ -6,7 +6,7 @@ alwaysApply: true
 Follow these guidelines for Rust development:
 
 - Use `cargo` for all Rust commands (e.g., `cargo run`, `cargo test`, `cargo build`, `cargo add`).
-- Adhere to Rust 2024 edition (or latest stable) best practices.
+- Adhere to Rust 2024/2025 edition (or latest stable) best practices.
 - Employ TDD (test-driven development) with `cargo test`.
 - Ensure code quality using `cargo clippy` for linting and fix all warnings.
 - Format code using `cargo fmt` before committing.
