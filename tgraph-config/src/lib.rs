@@ -2,6 +2,7 @@
 
 pub mod loader;
 pub mod settings;
+pub mod validation;
 
 pub use loader::ConfigLoader;
-pub use settings::AppConfig; 
+pub use settings::{AppConfig, Config}; 

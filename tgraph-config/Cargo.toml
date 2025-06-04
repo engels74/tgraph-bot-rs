@@ -15,6 +15,16 @@ tgraph-common = { path = "../tgraph-common" }
 # Configuration
 config = { workspace = true }
 toml = { workspace = true }
+serde_yaml = "0.9"
+
+# Validation
+validator = { version = "0.16", features = ["derive"] }
+
+# File watching
+notify = "6.0"
+
+# Async utilities
+futures = "0.3"
 
 # Serialization
 serde = { workspace = true }
@@ -26,6 +36,15 @@ thiserror = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
+
+# Cron parsing
+cron = "0.12"
+
+# URL parsing
+url = "2.4"
+
+# Regex
+regex = "1.10"
 
 [dev-dependencies]
 tokio-test = { workspace = true } 
