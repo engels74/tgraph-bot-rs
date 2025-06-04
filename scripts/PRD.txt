@@ -1,0 +1,181 @@
+<context>
+# Overview  
+TGraph Bot Rust Edition is a high-performance Discord bot engineered to automatically generate and post Tautulli graphs to designated Discord channels. Built with Rust's safety guarantees and zero-cost abstractions, it delivers exceptional performance while providing comprehensive visualizations and statistics about Plex Media Server activity. The bot solves the problem of manual monitoring and reporting of Plex server usage by automating graph generation and providing real-time insights through Discord integration.
+
+The target users are Plex server administrators, media enthusiasts, and Discord community managers who need automated monitoring and visualization of their media server statistics. The value proposition includes zero-maintenance automated reporting, beautiful visualizations, and seamless Discord integration with internationalization support.
+
+# Core Features  
+## Automated Graph Generation and Scheduling
+- Automatically generates Tautulli graphs on configurable schedules (daily, weekly, etc.)
+- Supports multiple graph types: daily play count, play count by day of week/hour, top platforms/users, monthly trends
+- Important for reducing manual monitoring overhead and ensuring consistent reporting
+- Works through background tasks that fetch data from Tautulli API and render graphs using native Rust plotting
+
+## Discord Slash Commands with Poise Framework
+- Type-safe slash commands: `/about`, `/config`, `/my_stats`, `/update_graphs`, `/uptime`
+- Built-in permission management and cooldown systems
+- Critical for user interaction and administrative control
+- Leverages Poise's unified command definition for both prefix and slash commands with automatic validation
+
+## Comprehensive Configuration Management
+- YAML-based configuration with runtime validation
+- Supports graph styling, privacy controls, rate limiting, and scheduling options
+- Essential for customization and deployment flexibility
+- Implements type-safe configuration loading with atomic file operations and thread-safe caching
+
+## Internationalization Support
+- Fluent localization system with compile-time message validation
+- Context-aware translations supporting pluralization and gender agreement
+- Important for global user base and accessibility
+- Uses Mozilla's Fluent format with lazy loading and type-safe message access
+
+## User Privacy and Statistics
+- Individual user statistics with privacy controls (username censoring)
+- Direct message delivery for personal statistics
+- Critical for user engagement while respecting privacy preferences
+- Implements zero-copy user statistics generation with efficient async channels
+
+# User Experience  
+## User Personas
+- **Plex Administrator**: Needs automated monitoring and reporting of server usage patterns
+- **Discord Community Manager**: Wants engaging content and statistics for their server members
+- **Media Enthusiast**: Interested in personal viewing statistics and trends
+
+## Key User Flows
+1. **Initial Setup**: Administrator configures bot with Tautulli API credentials and Discord channel
+2. **Automated Reporting**: Bot posts scheduled graphs to designated Discord channels
+3. **Interactive Commands**: Users invoke slash commands for real-time statistics and configuration
+4. **Personal Statistics**: Users request individual stats via DM for privacy
+
+## UI/UX Considerations
+- Clean, readable graph visualizations with customizable color schemes
+- Intuitive slash command interface with helpful error messages
+- Responsive configuration system with immediate validation feedback
+- Internationalized messages for global accessibility
+</context>
+<PRD>
+# Technical Architecture  
+## System Components
+- **Main Binary Crate (tgraph-bot)**: Application entry point with tokio runtime and structured logging
+- **Commands Crate (tgraph-commands)**: Poise-based Discord slash command implementations
+- **Configuration Crate (tgraph-config)**: Type-safe YAML configuration management with validation
+- **Graph Generation Crate (tgraph-graphs)**: Plotters-based graph rendering with Tautulli API integration
+- **Internationalization Crate (tgraph-i18n)**: Fluent localization system with compile-time validation
+- **Common Utilities Crate (tgraph-common)**: Shared types and zero-cost abstractions
+
+## Data Models
+- Configuration schema with nested structures for Discord, Tautulli, scheduling, and graph settings
+- Graph data structures optimized for zero-copy operations and memory efficiency
+- User statistics models with privacy-aware field access
+- Localization message bundles with type-safe accessor generation
+
+## APIs and Integrations
+- **Tautulli API**: RESTful integration with connection pooling and rate limiting
+- **Discord API**: Poise framework integration for slash commands and message posting
+- **Fluent Localization**: Mozilla Fluent format for internationalization
+
+## Infrastructure Requirements
+- Rust 1.70+ with tokio async runtime
+- Discord bot token and appropriate permissions
+- Tautulli server with API access
+- File system access for configuration and temporary graph storage
+
+# Development Roadmap  
+## Phase 1: Core Infrastructure (MVP)
+- Basic Rust workspace setup with cargo configuration
+- Core error handling and logging infrastructure
+- Configuration schema definition and YAML loading
+- Basic Tautulli API client with authentication
+- Simple Discord bot connection using Poise framework
+
+## Phase 2: Graph Generation Foundation
+- Plotters integration for graph rendering
+- Basic graph types implementation (daily play count, top users)
+- Data fetching and transformation pipeline
+- File-based graph output and Discord posting
+
+## Phase 3: Command System
+- Poise slash command framework integration
+- Basic commands: `/about`, `/uptime`, `/update_graphs`
+- Permission system and cooldown implementation
+- Configuration viewing and editing commands
+
+## Phase 4: Advanced Features
+- Complete graph type implementations (all 6 types)
+- User statistics and privacy controls
+- Scheduling system with background tasks
+- Advanced configuration options and validation
+
+## Phase 5: Internationalization and Polish
+- Fluent localization system implementation
+- Multi-language support with compile-time validation
+- Comprehensive testing suite (unit, integration, property-based)
+- Performance optimization and memory efficiency improvements
+
+## Phase 6: Production Readiness
+- Comprehensive error handling and recovery
+- Monitoring and observability features
+- Documentation and deployment guides
+- Security audit and dependency updates
+
+# Logical Dependency Chain
+## Foundation First (Phase 1)
+- Workspace and crate structure must be established before any feature development
+- Error handling and logging are prerequisites for all other components
+- Configuration system is required before any external integrations
+
+## Quick Visible Progress (Phase 2)
+- Basic graph generation provides immediate visual feedback
+- Simple Discord posting demonstrates core functionality
+- Tautulli integration proves data pipeline works
+
+## User Interaction Layer (Phase 3)
+- Command system builds on established Discord connection
+- Permission and cooldown systems require command framework
+- Configuration commands depend on both config system and command framework
+
+## Feature Completeness (Phase 4-5)
+- Advanced graph types build on basic rendering foundation
+- Internationalization requires stable command and message systems
+- Testing and optimization require complete feature set
+
+## Production Deployment (Phase 6)
+- Monitoring and observability require stable core functionality
+- Security and documentation are final polish before release
+
+# Risks and Mitigations  
+## Technical Challenges
+- **Risk**: Complex async coordination between Discord, Tautulli, and graph generation
+- **Mitigation**: Use tokio's structured concurrency patterns and comprehensive testing
+
+- **Risk**: Memory usage with large datasets and graph rendering
+- **Mitigation**: Implement streaming data processing and arena allocators for graph data
+
+- **Risk**: Poise framework learning curve and Discord API changes
+- **Mitigation**: Start with simple commands and maintain framework version compatibility
+
+## MVP Definition and Scope
+- **Risk**: Feature creep preventing timely MVP delivery
+- **Mitigation**: Focus on core graph generation and basic Discord posting for MVP
+
+- **Risk**: Over-engineering the configuration system
+- **Mitigation**: Start with simple YAML loading, add validation incrementally
+
+## Resource Constraints
+- **Risk**: Rust compilation times affecting development velocity
+- **Mitigation**: Use incremental compilation and modular crate structure
+
+- **Risk**: Testing complexity with external API dependencies
+- **Mitigation**: Implement comprehensive mocking strategy with mockall
+
+# Appendix  
+## Research Findings
+- Poise framework provides superior type safety compared to serenity-rs alone
+- Fluent localization offers better pluralization support than traditional i18n approaches
+- Plotters crate provides native Rust graph rendering without external dependencies
+
+## Technical Specifications
+- Minimum Rust version: 1.70 (for async trait support)
+- Target platforms: Linux x86_64, Docker containers
+- Memory target: <100MB resident for typical workloads
+- Performance target: <5 second graph generation for 30-day datasets

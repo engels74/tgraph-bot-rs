@@ -1,0 +1,34 @@
+[package]
+name = "tgraph-i18n"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Internationalization support for TGraph Telegram bot"
+
+[dependencies]
+# Common utilities
+tgraph-common = { path = "../tgraph-common" }
+
+# Internationalization
+fluent = { workspace = true }
+fluent-bundle = { workspace = true }
+fluent-syntax = { workspace = true }
+intl-memoizer = { workspace = true }
+unic-langid = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true } 

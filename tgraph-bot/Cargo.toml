@@ -1,0 +1,52 @@
+[package]
+name = "tgraph-bot"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "TGraph Telegram bot for data visualization and analytics"
+
+[[bin]]
+name = "tgraph-bot"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+tgraph-common = { path = "../tgraph-common" }
+tgraph-config = { path = "../tgraph-config" }
+tgraph-i18n = { path = "../tgraph-i18n" }
+tgraph-graphs = { path = "../tgraph-graphs" }
+tgraph-commands = { path = "../tgraph-commands" }
+
+# Telegram bot framework
+poise = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Configuration and CLI
+clap = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Utilities
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+
+[features]
+default = ["full"]
+full = ["tgraph-commands/all-commands"] 

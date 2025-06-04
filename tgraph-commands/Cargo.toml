@@ -1,0 +1,50 @@
+[package]
+name = "tgraph-commands"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command implementations for TGraph Telegram bot"
+
+[dependencies]
+# Internal crates
+tgraph-common = { path = "../tgraph-common" }
+tgraph-config = { path = "../tgraph-config" }
+tgraph-i18n = { path = "../tgraph-i18n" }
+tgraph-graphs = { path = "../tgraph-graphs" }
+
+# Telegram bot framework
+poise = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Utilities
+chrono = { workspace = true }
+uuid = { workspace = true }
+
+# HTTP client for external APIs
+reqwest = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+
+[features]
+default = ["all-commands"]
+all-commands = ["admin-commands", "user-commands", "graph-commands"]
+admin-commands = []
+user-commands = []
+graph-commands = [] 
