@@ -8,31 +8,13 @@ use tracing::{info, error};
 use tracing_subscriber::{self, EnvFilter};
 
 use tgraph_config::{ConfigLoader, Config};
-use tgraph_commands::CommandRegistry;
+use tgraph_commands::{CommandRegistry, CommandContext, create_command_context};
 use tgraph_i18n::{I18nManager, Locale};
 
-/// Shared application state accessible across commands and event handlers
-pub struct Data {
-    /// Application configuration
-    pub config: Arc<Config>,
-    /// HTTP client for external API calls
-    pub http_client: reqwest::Client,
-    /// Internationalization manager
-    pub i18n: Arc<I18nManager>,
-    /// Command registry
-    pub commands: Arc<CommandRegistry>,
-}
+// Use the command context from tgraph_commands
+type Data = CommandContext;
 
-impl std::fmt::Debug for Data {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Data")
-            .field("config", &"<Config>")
-            .field("http_client", &"<reqwest::Client>")
-            .field("i18n", &"<I18nManager>")
-            .field("commands", &"<CommandRegistry>")
-            .finish()
-    }
-}
+// Debug implementation is provided by CommandContext
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -66,28 +48,10 @@ async fn setup(
     // Load configuration
     let config = ConfigLoader::load()?;
     
-    // Initialize HTTP client
-    let http_client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(config.discord.request_timeout_seconds))
-        .build()?;
-
-    // Initialize i18n
-    let i18n = I18nManager::new(Locale::default());
-    info!("I18n manager initialized");
-
-    // Initialize command registry
-    let mut commands = CommandRegistry::new();
-    commands.register_all()?;
-    info!("Commands registered");
-
-    // Create shared application data
-    let data = Data {
-        config: Arc::new(config),
-        http_client,
-        i18n: Arc::new(i18n),
-        commands: Arc::new(commands),
-    };
+    // Create command context with all required components
+    let data = create_command_context(config).await?;
     
+    info!("Command context initialized successfully");
     Ok(data)
 }
 
@@ -149,10 +113,15 @@ async fn main() -> Result<()> {
         | GatewayIntents::MESSAGE_CONTENT 
         | GatewayIntents::GUILDS;
 
+    // Create and register commands
+    let mut registry = CommandRegistry::new();
+    registry.register_all()?;
+    let commands = registry.commands().to_vec();
+
     // Set up Poise framework
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![], // TODO: Add actual commands from registry
+            commands,
             on_error: |error| Box::pin(on_error(error)),
             event_handler: |ctx, event, framework, data| {
                 Box::pin(event_handler(ctx, event, framework, data))

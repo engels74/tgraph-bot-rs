@@ -49,6 +49,18 @@ pub struct DiscordConfig {
     /// Request timeout in seconds
     #[validate(range(min = 1, max = 300, message = "Timeout must be between 1 and 300 seconds"))]
     pub request_timeout_seconds: u64,
+
+    /// Bot owner user IDs (highest permission level)
+    pub owner_ids: Vec<u64>,
+    
+    /// Administrator user IDs (can use admin commands)
+    pub admin_ids: Vec<u64>,
+    
+    /// Administrator role IDs (roles that grant admin permissions)
+    pub admin_role_ids: Vec<u64>,
+    
+    /// Moderator role IDs (roles that grant moderator permissions)
+    pub moderator_role_ids: Vec<u64>,
 }
 
 /// Tautulli API configuration
@@ -216,6 +228,10 @@ impl Default for DiscordConfig {
             channels: Vec::new(),
             max_concurrent_requests: 10,
             request_timeout_seconds: 30,
+            owner_ids: vec![],
+            admin_ids: vec![],
+            admin_role_ids: vec![],
+            moderator_role_ids: vec![],
         }
     }
 }
@@ -566,6 +582,10 @@ logging:
             channels: vec![],
             max_concurrent_requests: 10,
             request_timeout_seconds: 30,
+            owner_ids: vec![],
+            admin_ids: vec![],
+            admin_role_ids: vec![],
+            moderator_role_ids: vec![],
         };
         assert!(discord_config.validate().is_ok());
 

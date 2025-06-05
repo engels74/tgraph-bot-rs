@@ -14,6 +14,19 @@ max_concurrent_requests = 10
 # Request timeout in seconds
 request_timeout_seconds = 30
 
+# Permission management
+# Bot owner user IDs (highest permission level, can use all commands)
+owner_ids = []
+
+# Administrator user IDs (can use admin commands)
+admin_ids = []
+
+# Administrator role IDs (roles that grant admin permissions)
+admin_role_ids = []
+
+# Moderator role IDs (roles that grant moderator permissions)
+moderator_role_ids = []
+
 [tautulli]
 # Your Tautulli server URL
 url = "http://localhost:8181"
