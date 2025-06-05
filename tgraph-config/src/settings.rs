@@ -7,21 +7,27 @@ use validator::Validate;
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct Config {
     /// Discord-related configuration
+    #[validate]
     pub discord: DiscordConfig,
     
     /// Tautulli-related configuration  
+    #[validate]
     pub tautulli: TautulliConfig,
     
     /// Scheduling configuration
+    #[validate]
     pub scheduling: SchedulingConfig,
     
     /// Graph rendering settings
+    #[validate]
     pub graph: GraphConfig,
     
     /// Database configuration
+    #[validate]
     pub database: DatabaseConfig,
     
     /// Logging configuration
+    #[validate]
     pub logging: LoggingConfig,
 }
 
@@ -206,7 +212,7 @@ impl Config {
 impl Default for DiscordConfig {
     fn default() -> Self {
         Self {
-            token: String::new(),
+            token: "000000000000000000.XXXXXX.YYYYYYYYYYYYYYYYYYYYYY".to_string(),
             channels: Vec::new(),
             max_concurrent_requests: 10,
             request_timeout_seconds: 30,
@@ -217,8 +223,8 @@ impl Default for DiscordConfig {
 impl Default for TautulliConfig {
     fn default() -> Self {
         Self {
-            url: String::new(),
-            api_key: String::new(),
+            url: "http://localhost:8181".to_string(),
+            api_key: "your_api_key_here".to_string(),
             timeout_seconds: 30,
             max_retries: 3,
         }
@@ -273,7 +279,7 @@ impl SchedulingConfig {
 impl Default for GraphConfig {
     fn default() -> Self {
         Self {
-            width: 1200,
+            width: 1920,
             height: 800,
             background_color: "#FFFFFF".to_string(),
             primary_color: "#007ACC".to_string(),
@@ -335,7 +341,7 @@ mod tests {
         let config = Config::default();
         assert!(config.validate().is_ok());
         assert_eq!(config.discord.max_concurrent_requests, 10);
-        assert_eq!(config.graph.width, 1200);
+        assert_eq!(config.graph.width, 1920);
         assert_eq!(config.database.url, "sqlite://tgraph.db");
     }
 
@@ -445,7 +451,7 @@ mod tests {
     fn test_minimal_valid_config() {
         let yaml = r"
 discord:
-  token: 'test_token'
+  token: '792715454196088842.X-hvzA.Ovy4MCQywSkoMRRclStW4xAYK7I'
   channels: []
   max_concurrent_requests: 5
   request_timeout_seconds: 15
@@ -492,7 +498,7 @@ logging:
 
         let config: Config = serde_yaml::from_str(yaml).expect("Failed to parse minimal config");
         assert!(config.validate().is_ok());
-        assert_eq!(config.discord.token, "test_token");
+        assert_eq!(config.discord.token, "792715454196088842.X-hvzA.Ovy4MCQywSkoMRRclStW4xAYK7I");
         assert_eq!(config.graph.width, 800);
     }
 
@@ -556,7 +562,7 @@ logging:
     fn test_comprehensive_validation() {
         // Test individual components first
         let discord_config = DiscordConfig {
-            token: "123456789.abcdef.ghijklmnop".to_string(),
+            token: "792715454196088842.X-hvzA.Ovy4MCQywSkoMRRclStW4xAYK7I".to_string(),
             channels: vec![],
             max_concurrent_requests: 10,
             request_timeout_seconds: 30,
