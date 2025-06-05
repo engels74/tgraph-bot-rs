@@ -1,8 +1,14 @@
 //! Thread-safe configuration manager
 
 use crate::{Config, ConfigError, ConfigLoader};
-use std::path::Path;
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use std::path::{Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    mpsc, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
+};
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 use thiserror::Error;
 use tgraph_common::Result as TGraphResult;
 
@@ -20,6 +26,22 @@ pub enum ConfigManagerError {
     /// Timeout acquiring lock
     #[error("Timeout acquiring configuration lock")]
     LockTimeout,
+    
+    /// File watching error
+    #[error("File watching error: {0}")]
+    WatcherError(#[from] notify::Error),
+    
+    /// Watcher already running
+    #[error("Configuration file watcher is already running")]
+    WatcherAlreadyRunning,
+    
+    /// Watcher not running
+    #[error("Configuration file watcher is not running")]
+    WatcherNotRunning,
+    
+    /// Thread join error
+    #[error("Failed to join watcher thread")]
+    ThreadJoinError,
 }
 
 impl From<ConfigManagerError> for tgraph_common::TGraphError {
@@ -28,14 +50,37 @@ impl From<ConfigManagerError> for tgraph_common::TGraphError {
     }
 }
 
+/// Configuration watcher state
+#[derive(Debug)]
+struct WatcherState {
+    /// Path to the configuration file being watched
+    config_path: PathBuf,
+    /// Handle to the watcher thread
+    thread_handle: JoinHandle<()>,
+    /// Signal to stop the watcher thread
+    stop_signal: Arc<AtomicBool>,
+}
+
 /// Thread-safe configuration manager
 /// 
 /// Provides safe access to configuration across multiple threads using Arc<RwLock<Config>>.
 /// Supports both read-only and mutable access patterns while preventing deadlocks.
-#[derive(Debug, Clone)]
+/// Can optionally watch configuration files for changes and automatically reload.
+#[derive(Debug)]
 pub struct ConfigManager {
     /// The configuration wrapped in a thread-safe container
     config: Arc<RwLock<Config>>,
+    /// Optional file watcher state
+    watcher_state: Arc<Mutex<Option<WatcherState>>>,
+}
+
+impl Clone for ConfigManager {
+    fn clone(&self) -> Self {
+        Self {
+            config: Arc::clone(&self.config),
+            watcher_state: Arc::clone(&self.watcher_state),
+        }
+    }
 }
 
 impl ConfigManager {
@@ -43,6 +88,7 @@ impl ConfigManager {
     pub fn new(config: Config) -> Self {
         Self {
             config: Arc::new(RwLock::new(config)),
+            watcher_state: Arc::new(Mutex::new(None)),
         }
     }
     
@@ -189,6 +235,181 @@ impl ConfigManager {
         self.replace_config(new_config)
     }
     
+    /// Start watching a configuration file for changes and automatically reload
+    /// 
+    /// This method starts a background thread that monitors the specified file
+    /// for changes. When changes are detected, the configuration is automatically
+    /// reloaded and validated. If the new configuration is invalid, the old
+    /// configuration is preserved and an error is logged.
+    /// 
+    /// # Arguments
+    /// * `config_path` - Path to the configuration file to watch
+    /// 
+    /// # Errors
+    /// Returns an error if the watcher is already running or if the file
+    /// system watcher cannot be created.
+    pub fn start_watching<P: AsRef<Path>>(&self, config_path: P) -> Result<(), ConfigManagerError> {
+        let config_path = config_path.as_ref().to_path_buf();
+        
+        // Check if watcher is already running
+        {
+            let watcher_guard = self.watcher_state.lock()
+                .map_err(|_| ConfigManagerError::LockPoisoned)?;
+            
+            if watcher_guard.is_some() {
+                return Err(ConfigManagerError::WatcherAlreadyRunning);
+            }
+        }
+        
+        // Create a channel for file system events
+        let (tx, rx) = mpsc::channel();
+        
+        // Create the file system watcher
+        let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())?;
+        
+        // Watch the configuration file
+        watcher.watch(&config_path, RecursiveMode::NonRecursive)?;
+        
+        // Create stop signal
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let stop_signal_clone = Arc::clone(&stop_signal);
+        
+        // Clone necessary data for the thread
+        let config_manager = self.clone();
+        let config_path_clone = config_path.clone();
+        
+        // Spawn the watcher thread
+        let thread_handle = thread::spawn(move || {
+            Self::watcher_thread(config_manager, config_path_clone, rx, stop_signal_clone, watcher);
+        });
+        
+        // Store the watcher state
+        let watcher_state = WatcherState {
+            config_path,
+            thread_handle,
+            stop_signal,
+        };
+        
+        let mut watcher_guard = self.watcher_state.lock()
+            .map_err(|_| ConfigManagerError::LockPoisoned)?;
+        *watcher_guard = Some(watcher_state);
+        
+        tracing::info!("Configuration file watcher started");
+        Ok(())
+    }
+    
+    /// Stop watching the configuration file
+    /// 
+    /// This method stops the background file watcher thread and cleans up
+    /// associated resources. If no watcher is currently running, this method
+    /// returns an error.
+    pub fn stop_watching(&self) -> Result<(), ConfigManagerError> {
+        let watcher_state = {
+            let mut watcher_guard = self.watcher_state.lock()
+                .map_err(|_| ConfigManagerError::LockPoisoned)?;
+            
+            watcher_guard.take().ok_or(ConfigManagerError::WatcherNotRunning)?
+        };
+        
+        // Signal the thread to stop
+        watcher_state.stop_signal.store(true, Ordering::SeqCst);
+        
+        // Wait for the thread to finish
+        watcher_state.thread_handle.join()
+            .map_err(|_| ConfigManagerError::ThreadJoinError)?;
+        
+        tracing::info!("Configuration file watcher stopped");
+        Ok(())
+    }
+    
+    /// Check if the configuration file watcher is currently running
+    pub fn is_watching(&self) -> bool {
+        self.watcher_state.lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
+    }
+    
+    /// Get the path of the configuration file being watched, if any
+    pub fn watched_path(&self) -> Option<PathBuf> {
+        self.watcher_state.lock()
+            .ok()?
+            .as_ref()
+            .map(|state| state.config_path.clone())
+    }
+    
+    /// Background thread function for handling file system events
+    fn watcher_thread(
+        config_manager: ConfigManager,
+        config_path: PathBuf,
+        rx: mpsc::Receiver<notify::Result<Event>>,
+        stop_signal: Arc<AtomicBool>,
+        _watcher: RecommendedWatcher, // Keep watcher alive
+    ) {
+        let mut last_reload_time = Instant::now();
+        const DEBOUNCE_DURATION: Duration = Duration::from_millis(500);
+        
+        while !stop_signal.load(Ordering::SeqCst) {
+            match rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(Ok(event)) => {
+                    // Check if this event is relevant
+                    if Self::should_reload_for_event(&event, &config_path) {
+                        // Debounce: only reload if enough time has passed since last reload
+                        let now = Instant::now();
+                        if now.duration_since(last_reload_time) >= DEBOUNCE_DURATION {
+                            last_reload_time = now;
+                            
+                            // Attempt to reload the configuration
+                            if let Err(e) = config_manager.reload_from_file(&config_path) {
+                                tracing::warn!(
+                                    "Failed to reload configuration from {}: {}",
+                                    config_path.display(),
+                                    e
+                                );
+                            } else {
+                                tracing::info!(
+                                    "Configuration reloaded from {}",
+                                    config_path.display()
+                                );
+                            }
+                        }
+                    }
+                }
+                Ok(Err(e)) => {
+                    tracing::warn!("File watcher error: {}", e);
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    // Normal timeout, continue loop
+                    continue;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    tracing::debug!("File watcher channel disconnected");
+                    break;
+                }
+            }
+        }
+        
+        tracing::debug!("Configuration file watcher thread exiting");
+    }
+    
+    /// Determine if a file system event should trigger a configuration reload
+    fn should_reload_for_event(event: &Event, config_path: &Path) -> bool {
+        match &event.kind {
+            EventKind::Modify(_) | EventKind::Create(_) => {
+                // Check if the event affects our configuration file
+                event.paths.iter().any(|path| path == config_path)
+            }
+            EventKind::Remove(_) => {
+                // If the file is removed, we might want to handle this differently
+                // For now, we'll just log it and not reload
+                if event.paths.iter().any(|path| path == config_path) {
+                    tracing::warn!("Configuration file {} was removed", config_path.display());
+                }
+                false
+            }
+            _ => false,
+        }
+    }
+    
     /// Get a read guard for low-level access
     /// 
     /// This method provides direct access to the RwLockReadGuard for advanced
@@ -231,6 +452,17 @@ impl Default for ConfigManager {
     }
 }
 
+impl Drop for ConfigManager {
+    fn drop(&mut self) {
+        // Attempt to stop the watcher gracefully
+        if self.is_watching() {
+            if let Err(e) = self.stop_watching() {
+                tracing::warn!("Failed to stop configuration watcher during drop: {}", e);
+            }
+        }
+    }
+}
+
 // Implement Send and Sync explicitly to ensure thread safety
 unsafe impl Send for ConfigManager {}
 unsafe impl Sync for ConfigManager {}
@@ -243,6 +475,7 @@ mod tests {
     use std::time::Duration;
     use tempfile::NamedTempFile;
     use std::io::Write;
+    use notify::Event;
 
     fn create_test_config() -> Config {
         let mut config = Config::default();
@@ -477,5 +710,83 @@ mod tests {
         // Verify we can access through the shared Arc
         let guard = shared.read().unwrap();
         assert_eq!(guard.discord.token, "123456789.abcdef.ghijklmnop");
+    }
+
+    #[test]
+    fn test_watcher_state_management() {
+        let config = create_test_config();
+        let manager = ConfigManager::new(config);
+        
+        // Initially not watching
+        assert!(!manager.is_watching());
+        assert!(manager.watched_path().is_none());
+        
+        // Create a temporary config file
+        let mut temp_file = NamedTempFile::new().unwrap();
+        writeln!(temp_file, "discord:\n  token: test_token\ntautulli:\n  url: http://test\n  api_key: test").unwrap();
+        
+        // Start watching
+        let result = manager.start_watching(temp_file.path());
+        assert!(result.is_ok());
+        assert!(manager.is_watching());
+        assert_eq!(manager.watched_path().unwrap(), temp_file.path());
+        
+        // Try to start watching again (should fail)
+        let result = manager.start_watching(temp_file.path());
+        assert!(matches!(result, Err(ConfigManagerError::WatcherAlreadyRunning)));
+        
+        // Stop watching
+        let result = manager.stop_watching();
+        assert!(result.is_ok());
+        assert!(!manager.is_watching());
+        assert!(manager.watched_path().is_none());
+        
+        // Try to stop again (should fail)
+        let result = manager.stop_watching();
+        assert!(matches!(result, Err(ConfigManagerError::WatcherNotRunning)));
+    }
+
+    #[test]
+    fn test_should_reload_for_event() {
+        use notify::EventKind;
+        use std::path::PathBuf;
+        
+        let config_path = PathBuf::from("/test/config.yaml");
+        
+        // Test modify event for our config file
+        let event = Event {
+            kind: EventKind::Modify(notify::event::ModifyKind::Data(
+                notify::event::DataChange::Content
+            )),
+            paths: vec![config_path.clone()],
+            attrs: Default::default(),
+        };
+        assert!(ConfigManager::should_reload_for_event(&event, &config_path));
+        
+        // Test modify event for different file
+        let event = Event {
+            kind: EventKind::Modify(notify::event::ModifyKind::Data(
+                notify::event::DataChange::Content
+            )),
+            paths: vec![PathBuf::from("/test/other.yaml")],
+            attrs: Default::default(),
+        };
+        assert!(!ConfigManager::should_reload_for_event(&event, &config_path));
+        
+        // Test create event for our config file
+        let event = Event {
+            kind: EventKind::Create(notify::event::CreateKind::File),
+            paths: vec![config_path.clone()],
+            attrs: Default::default(),
+        };
+        assert!(ConfigManager::should_reload_for_event(&event, &config_path));
+        
+        // Test remove event (should not trigger reload)
+        let event = Event {
+            kind: EventKind::Remove(notify::event::RemoveKind::File),
+            paths: vec![config_path.clone()],
+            attrs: Default::default(),
+        };
+        assert!(!ConfigManager::should_reload_for_event(&event, &config_path));
     }
 } 
