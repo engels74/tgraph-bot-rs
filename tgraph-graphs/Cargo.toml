@@ -31,6 +31,8 @@ tracing = { workspace = true }
 
 # Utilities
 chrono = { workspace = true }
+uuid = { version = "1.6", features = ["v4"] }
+fastrand = "2.0"
 
 # Async traits
 async-trait = "0.1"
