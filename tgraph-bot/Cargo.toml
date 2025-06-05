@@ -20,8 +20,11 @@ tgraph-i18n = { path = "../tgraph-i18n" }
 tgraph-graphs = { path = "../tgraph-graphs" }
 tgraph-commands = { path = "../tgraph-commands" }
 
-# Telegram bot framework
+# Discord bot framework
 poise = { workspace = true }
+
+# HTTP client
+reqwest = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }

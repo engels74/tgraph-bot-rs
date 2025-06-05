@@ -1,0 +1,89 @@
+# TGraph Discord Bot Configuration Example
+# Copy this file to config.toml and update with your settings
+
+[discord]
+# Your Discord bot token (get this from Discord Developer Portal)
+token = "YOUR_BOT_TOKEN_HERE"
+
+# List of Discord channel IDs where the bot can operate (optional, empty means all channels)
+channels = []
+
+# Maximum number of concurrent requests to Discord API
+max_concurrent_requests = 10
+
+# Request timeout in seconds
+request_timeout_seconds = 30
+
+[tautulli]
+# Your Tautulli server URL
+url = "http://localhost:8181"
+
+# Your Tautulli API key (found in Tautulli Settings > Web Interface)
+api_key = "YOUR_TAUTULLI_API_KEY_HERE"
+
+# Request timeout in seconds
+timeout_seconds = 30
+
+# Maximum number of retries for failed requests
+max_retries = 3
+
+[scheduling]
+# Enable automatic scheduling features
+enabled = false
+
+# Cron expression for automatic graph generation (optional)
+# Example: "0 0 * * *" for daily at midnight
+auto_graph_cron = "0 0 * * *"
+
+# Cron expression for statistics cleanup (optional)
+# Example: "0 2 * * 0" for weekly on Sunday at 2 AM
+cleanup_cron = "0 2 * * 0"
+
+# Timezone for cron expressions (IANA timezone name)
+timezone = "UTC"
+
+[graph]
+# Graph dimensions in pixels
+width = 1920
+height = 1080
+
+# Colors (hex format)
+background_color = "#2B2D31"
+primary_color = "#5865F2"
+secondary_color = "#57F287"
+
+# Font settings
+font_family = "Arial"
+font_size = 12
+
+# Display options
+show_grid = true
+show_legend = true
+
+# Maximum number of data points to display
+max_data_points = 1000
+
+[database]
+# Database connection URL (SQLite example)
+url = "sqlite:./tgraph.db"
+
+# Connection pool settings
+max_connections = 10
+connection_timeout_seconds = 30
+query_timeout_seconds = 60
+
+[logging]
+# Log level: trace, debug, info, warn, error
+level = "info"
+
+# Optional log file path (comment out to log to console only)
+# file = "./tgraph.log"
+
+# Console logging options
+colored = true
+include_timestamps = true
+include_location = false
+
+# Log rotation settings (only used if file is specified)
+max_file_size_mb = 10
+max_files = 5 

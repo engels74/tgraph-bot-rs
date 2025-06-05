@@ -2853,6 +2853,7 @@ dependencies = [
  "chrono",
  "clap",
  "poise",
+ "reqwest",
  "serde",
  "serde_json",
  "tgraph-commands",
