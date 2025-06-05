@@ -2897,6 +2897,7 @@ dependencies = [
  "chrono",
  "config",
  "governor",
+ "plotters",
  "reqwest",
  "serde",
  "serde_json",
@@ -2938,10 +2939,12 @@ name = "tgraph-graphs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "plotters",
  "serde",
  "serde_json",
+ "tempfile",
  "tgraph-common",
  "thiserror 1.0.69",
  "tokio",

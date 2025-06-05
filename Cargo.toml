@@ -29,7 +29,7 @@ poise = "0.6"
 serenity = { version = "0.12", features = ["client", "gateway", "rustls_backend", "model"] }
 
 # Plotting and visualization
-plotters = { version = "0.3", features = ["all_series", "all_elements"] }
+plotters = { version = "0.3", features = ["all_series", "all_elements", "bitmap_backend"] }
 
 # Internationalization
 fluent = "0.16"

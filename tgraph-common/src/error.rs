@@ -220,6 +220,17 @@ impl TGraphError {
         }
     }
 
+    /// Create a new graph error with source
+    pub fn graph_with_source(
+        msg: impl Into<String>,
+        source: impl std::error::Error + Send + Sync + 'static
+    ) -> Self {
+        Self::Graph {
+            message: msg.into(),
+            source: Some(Box::new(source)),
+        }
+    }
+
     /// Create a new localization error
     pub fn localization(msg: impl Into<String>) -> Self {
         Self::Localization {
@@ -295,6 +306,17 @@ impl From<toml::de::Error> for TGraphError {
 impl From<config::ConfigError> for TGraphError {
     fn from(err: config::ConfigError) -> Self {
         Self::config_with_source("Configuration loading error", err)
+    }
+}
+
+#[cfg(feature = "plotters")]
+/// Convert from plotters drawing errors to TGraphError
+impl<T> From<plotters::drawing::DrawingAreaErrorKind<T>> for TGraphError 
+where 
+    T: std::error::Error + Send + Sync + 'static
+{
+    fn from(err: plotters::drawing::DrawingAreaErrorKind<T>) -> Self {
+        Self::graph_with_source("Graph rendering failed", err)
     }
 }
 

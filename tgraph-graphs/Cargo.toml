@@ -10,7 +10,7 @@ description = "Graph generation and visualization for TGraph Telegram bot"
 
 [dependencies]
 # Common utilities
-tgraph-common = { path = "../tgraph-common" }
+tgraph-common = { path = "../tgraph-common", features = ["plotters"] }
 
 # Plotting and visualization
 plotters = { workspace = true }
@@ -32,5 +32,9 @@ tracing = { workspace = true }
 # Utilities
 chrono = { workspace = true }
 
+# Async traits
+async-trait = "0.1"
+
 [dev-dependencies]
-tokio-test = { workspace = true } 
+tokio-test = { workspace = true }
+tempfile = "3.8" 

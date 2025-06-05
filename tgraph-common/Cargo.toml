@@ -41,5 +41,12 @@ uuid = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+# Plotting (for error conversion)
+plotters = { workspace = true, optional = true }
+
+[features]
+default = []
+plotters = ["dep:plotters"]
+
 [dev-dependencies]
 tokio-test = { workspace = true } 
