@@ -24,6 +24,7 @@ impl CommandRegistry {
         self.commands.push(crate::user::about());
         self.commands.push(crate::user::uptime());
         self.commands.push(crate::admin::update_graphs());
+        self.commands.push(crate::admin::metrics());
 
         Ok(())
     }
