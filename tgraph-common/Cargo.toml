@@ -24,6 +24,15 @@ config = { workspace = true }
 # HTTP client
 reqwest = { workspace = true }
 
+# Rate limiting
+governor = "0.6"
+
+# Retry logic
+tokio-retry = "0.3"
+
+# Async runtime
+tokio = { workspace = true }
+
 # Utilities
 chrono = { workspace = true }
 uuid = { workspace = true }
