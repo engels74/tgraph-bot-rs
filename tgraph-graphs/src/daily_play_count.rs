@@ -8,7 +8,7 @@ use std::path::Path;
 use tgraph_common::Result;
 
 /// Time series data point for daily play counts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PlayCountDataPoint {
     pub date: NaiveDate,
     pub count: u32,

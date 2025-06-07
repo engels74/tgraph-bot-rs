@@ -37,6 +37,9 @@ fastrand = "2.0"
 # Async traits
 async-trait = "0.1"
 
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
 [dev-dependencies]
 tokio-test = { workspace = true }
 tempfile = "3.8" 

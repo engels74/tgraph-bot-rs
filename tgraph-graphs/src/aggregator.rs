@@ -599,7 +599,7 @@ impl DataAggregator<MonthlyDataPoint> for MonthlyTrendsAggregator {
 // These are placeholders based on the existing graph patterns
 
 /// Data point for top platforms
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TopPlatformDataPoint {
     pub platform: String,
     pub count: u32,
@@ -608,7 +608,7 @@ pub struct TopPlatformDataPoint {
 }
 
 /// Data point for top users
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TopUserDataPoint {
     pub user_id: i32,
     pub username: String,

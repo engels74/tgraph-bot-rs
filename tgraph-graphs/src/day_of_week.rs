@@ -8,7 +8,7 @@ use std::path::Path;
 use tgraph_common::{Result, TGraphError};
 
 /// Data point for day of week play counts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DayOfWeekDataPoint {
     pub weekday: Weekday,
     pub count: u32,

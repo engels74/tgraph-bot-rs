@@ -7,7 +7,7 @@ use std::path::Path;
 use tgraph_common::{Result, TGraphError};
 
 /// Data point for hourly play counts
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct HourlyDataPoint {
     pub hour: u8, // 0-23 hour of day
     pub count: u32,

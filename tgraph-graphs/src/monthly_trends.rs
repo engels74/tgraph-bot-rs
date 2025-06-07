@@ -8,7 +8,7 @@ use std::path::Path;
 use tgraph_common::{Result, TGraphError};
 
 /// Data point for monthly trends
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MonthlyDataPoint {
     pub year: i32,
     pub month: u32, // 1-12
