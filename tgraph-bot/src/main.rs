@@ -10,7 +10,6 @@ use tgraph_config::ConfigLoader;
 use tgraph_commands::{CommandRegistry, CommandContext, create_command_context};
 
 mod discord;
-mod database;
 
 // Use the command context from tgraph_commands
 type Data = CommandContext;

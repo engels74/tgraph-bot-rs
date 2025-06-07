@@ -40,8 +40,12 @@ dashmap = { workspace = true }
 # HTTP client for external APIs
 reqwest = { workspace = true }
 
+# Database
+sled = "0.34"
+
 [dev-dependencies]
 tokio-test = { workspace = true }
+tempfile = "3.0"
 
 [features]
 default = ["all-commands"]

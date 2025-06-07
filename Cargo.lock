@@ -3061,6 +3061,8 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sled",
+ "tempfile",
  "tgraph-common",
  "tgraph-config",
  "tgraph-graphs",

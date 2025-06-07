@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tgraph_config::Config;
 use tgraph_i18n::I18nManager;
-use crate::{Permissions, CooldownManager, MetricsManager};
+use crate::{Permissions, CooldownManager, MetricsManager, UserDatabase, UserStatisticsManager};
 use tracing::info;
 use tokio::time::interval;
 
@@ -23,6 +23,10 @@ pub struct CommandContext {
     pub cooldown: Arc<CooldownManager>,
     /// Metrics and usage tracking manager
     pub metrics: Arc<MetricsManager>,
+    /// User database for preferences and privacy settings
+    pub user_db: Arc<UserDatabase>,
+    /// User statistics manager with caching and privacy controls
+    pub user_stats: Arc<UserStatisticsManager>,
 }
 
 /// Error type for commands
@@ -119,6 +123,14 @@ pub async fn create_command_context(config: Config) -> Result<CommandContext, Co
     // Initialize metrics manager
     let metrics = MetricsManager::new();
 
+    // Initialize user database
+    let db_path = std::env::current_dir()?.join("data").join("user_preferences.db");
+    std::fs::create_dir_all(db_path.parent().unwrap())?;
+    let user_db = Arc::new(UserDatabase::new(db_path)?);
+
+    // Initialize user statistics manager
+    let user_stats = Arc::new(UserStatisticsManager::new(user_db.clone()));
+
     // Start background cleanup task
     let metrics_arc = Arc::new(metrics);
     let _cleanup_handle = start_metrics_cleanup_task(metrics_arc.clone());
@@ -130,5 +142,7 @@ pub async fn create_command_context(config: Config) -> Result<CommandContext, Co
         permissions: Arc::new(permissions),
         cooldown: Arc::new(cooldown),
         metrics: metrics_arc,
+        user_db,
+        user_stats,
     })
 } 

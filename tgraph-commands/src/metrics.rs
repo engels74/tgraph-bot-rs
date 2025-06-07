@@ -408,4 +408,22 @@ impl MetricsManager {
             "timestamp": Utc::now()
         })
     }
+
+    /// Get all command executions for a specific user
+    pub fn get_user_executions(&self, user_id: u64) -> Vec<CommandExecution> {
+        let mut user_executions = Vec::new();
+        
+        for entry in self.executions.iter() {
+            for execution in entry.value().iter() {
+                if execution.user_id == user_id {
+                    user_executions.push(execution.clone());
+                }
+            }
+        }
+        
+        // Sort by timestamp (most recent first)
+        user_executions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        
+        user_executions
+    }
 } 
