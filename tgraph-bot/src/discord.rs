@@ -1,13 +1,14 @@
 //! Discord API client with authentication and connection management
 
 use anyhow::{Result, bail};
-use poise::serenity_prelude::{self as serenity, GatewayIntents, ShardManager, ChannelId, GuildId, CreateAttachment};
+use poise::serenity_prelude::{self as serenity, GatewayIntents, ShardManager, ChannelId, GuildId, CreateAttachment, CreateEmbed, CreateMessage, Colour, Timestamp};
 use std::sync::Arc;
 use std::path::Path;
 use std::fs;
 use tracing::{info, warn, error, debug};
 use tokio::sync::RwLock;
 use tgraph_config::settings::DiscordConfig;
+use chrono::{DateTime, Utc};
 
 /// Discord client status
 #[derive(Debug, Clone, PartialEq)]
@@ -726,6 +727,474 @@ pub enum AuthError {
     Network(String),
 }
 
+/// Message type for color coding and formatting
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessageType {
+    /// Success message (green)
+    Success,
+    /// Information message (blue)
+    Info,
+    /// Warning message (yellow/orange)
+    Warning,
+    /// Error message (red)
+    Error,
+    /// Graph result message (purple)
+    Graph,
+    /// System message (gray)
+    System,
+}
+
+impl MessageType {
+    /// Get the Discord color for this message type
+    pub fn color(&self) -> Colour {
+        match self {
+            MessageType::Success => Colour::from_rgb(34, 197, 94),   // Green
+            MessageType::Info => Colour::from_rgb(59, 130, 246),     // Blue
+            MessageType::Warning => Colour::from_rgb(245, 158, 11),  // Orange
+            MessageType::Error => Colour::from_rgb(239, 68, 68),     // Red
+            MessageType::Graph => Colour::from_rgb(147, 51, 234),    // Purple
+            MessageType::System => Colour::from_rgb(107, 114, 128),  // Gray
+        }
+    }
+
+    /// Get an emoji prefix for this message type
+    pub fn emoji(&self) -> &'static str {
+        match self {
+            MessageType::Success => "✅",
+            MessageType::Info => "ℹ️",
+            MessageType::Warning => "⚠️",
+            MessageType::Error => "❌",
+            MessageType::Graph => "📊",
+            MessageType::System => "🤖",
+        }
+    }
+}
+
+/// Metadata field for embeds
+#[derive(Debug, Clone)]
+pub struct MetadataField {
+    /// Field name
+    pub name: String,
+    /// Field value
+    pub value: String,
+    /// Whether to display inline
+    pub inline: bool,
+}
+
+impl MetadataField {
+    /// Create a new metadata field
+    pub fn new<N: Into<String>, V: Into<String>>(name: N, value: V) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+            inline: false,
+        }
+    }
+
+    /// Create a new inline metadata field
+    pub fn inline<N: Into<String>, V: Into<String>>(name: N, value: V) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+            inline: true,
+        }
+    }
+
+    /// Set the inline property
+    pub fn with_inline(mut self, inline: bool) -> Self {
+        self.inline = inline;
+        self
+    }
+}
+
+/// Discord message builder with embed support
+#[derive(Debug, Clone)]
+pub struct DiscordMessageBuilder {
+    /// Message content (outside embed)
+    content: Option<String>,
+    /// Embed title
+    title: Option<String>,
+    /// Embed description
+    description: Option<String>,
+    /// Message type for color coding
+    message_type: MessageType,
+    /// Metadata fields
+    fields: Vec<MetadataField>,
+    /// Author name for embed
+    author: Option<String>,
+    /// Author icon URL
+    author_icon: Option<String>,
+    /// Footer text
+    footer: Option<String>,
+    /// Footer icon URL
+    footer_icon: Option<String>,
+    /// Thumbnail URL
+    thumbnail: Option<String>,
+    /// Image URL (for main image)
+    image: Option<String>,
+    /// Custom timestamp
+    timestamp: Option<DateTime<Utc>>,
+    /// Whether to include generation timestamp in footer
+    include_generation_time: bool,
+}
+
+impl DiscordMessageBuilder {
+    /// Create a new message builder
+    pub fn new(message_type: MessageType) -> Self {
+        Self {
+            content: None,
+            title: None,
+            description: None,
+            message_type,
+            fields: Vec::new(),
+            author: None,
+            author_icon: None,
+            footer: None,
+            footer_icon: None,
+            thumbnail: None,
+            image: None,
+            timestamp: None,
+            include_generation_time: true,
+        }
+    }
+
+    /// Create a graph result message builder
+    pub fn graph() -> Self {
+        Self::new(MessageType::Graph)
+    }
+
+    /// Create a success message builder
+    pub fn success() -> Self {
+        Self::new(MessageType::Success)
+    }
+
+    /// Create an info message builder
+    pub fn info() -> Self {
+        Self::new(MessageType::Info)
+    }
+
+    /// Create a warning message builder
+    pub fn warning() -> Self {
+        Self::new(MessageType::Warning)
+    }
+
+    /// Create an error message builder
+    pub fn error() -> Self {
+        Self::new(MessageType::Error)
+    }
+
+    /// Create a system message builder
+    pub fn system() -> Self {
+        Self::new(MessageType::System)
+    }
+
+    /// Set the main message content (outside embed)
+    pub fn content<S: Into<String>>(mut self, content: S) -> Self {
+        self.content = Some(content.into());
+        self
+    }
+
+    /// Set the embed title
+    pub fn title<S: Into<String>>(mut self, title: S) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    /// Set the embed description
+    pub fn description<S: Into<String>>(mut self, description: S) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Add a metadata field
+    pub fn field(mut self, field: MetadataField) -> Self {
+        self.fields.push(field);
+        self
+    }
+
+    /// Add a simple metadata field
+    pub fn add_field<N: Into<String>, V: Into<String>>(mut self, name: N, value: V, inline: bool) -> Self {
+        self.fields.push(MetadataField {
+            name: name.into(),
+            value: value.into(),
+            inline,
+        });
+        self
+    }
+
+    /// Set the author
+    pub fn author<S: Into<String>>(mut self, name: S) -> Self {
+        self.author = Some(name.into());
+        self
+    }
+
+    /// Set the author with icon
+    pub fn author_with_icon<S: Into<String>, U: Into<String>>(mut self, name: S, icon_url: U) -> Self {
+        self.author = Some(name.into());
+        self.author_icon = Some(icon_url.into());
+        self
+    }
+
+    /// Set the footer
+    pub fn footer<S: Into<String>>(mut self, text: S) -> Self {
+        self.footer = Some(text.into());
+        self
+    }
+
+    /// Set the footer with icon
+    pub fn footer_with_icon<S: Into<String>, U: Into<String>>(mut self, text: S, icon_url: U) -> Self {
+        self.footer = Some(text.into());
+        self.footer_icon = Some(icon_url.into());
+        self
+    }
+
+    /// Set the thumbnail URL
+    pub fn thumbnail<S: Into<String>>(mut self, url: S) -> Self {
+        self.thumbnail = Some(url.into());
+        self
+    }
+
+    /// Set the image URL
+    pub fn image<S: Into<String>>(mut self, url: S) -> Self {
+        self.image = Some(url.into());
+        self
+    }
+
+    /// Set a custom timestamp
+    pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
+        self.timestamp = Some(timestamp);
+        self
+    }
+
+    /// Control whether to include generation timestamp in footer
+    pub fn include_generation_time(mut self, include: bool) -> Self {
+        self.include_generation_time = include;
+        self
+    }
+
+    /// Build the Discord CreateMessage
+    pub fn build(self) -> CreateMessage {
+        let mut message = CreateMessage::new();
+
+        // Set content if provided
+        if let Some(content) = self.content {
+            message = message.content(content);
+        }
+
+        // Create embed
+        let mut embed = CreateEmbed::new().color(self.message_type.color());
+
+        // Set title with emoji prefix
+        if let Some(title) = self.title {
+            let title_with_emoji = format!("{} {}", self.message_type.emoji(), title);
+            embed = embed.title(title_with_emoji);
+        }
+
+        // Set description
+        if let Some(description) = self.description {
+            embed = embed.description(description);
+        }
+
+        // Add fields
+        for field in self.fields {
+            embed = embed.field(field.name, field.value, field.inline);
+        }
+
+        // Set author
+        if let Some(author) = self.author {
+            if let Some(icon) = self.author_icon {
+                embed = embed.author(serenity::CreateEmbedAuthor::new(author).icon_url(icon));
+            } else {
+                embed = embed.author(serenity::CreateEmbedAuthor::new(author));
+            }
+        }
+
+        // Set footer with generation time
+        let footer_text = if self.include_generation_time {
+            let generation_time = Utc::now().format("%Y-%m-%d %H:%M:%S UTC");
+            match self.footer {
+                Some(footer) => format!("{} • Generated at {}", footer, generation_time),
+                None => format!("Generated at {}", generation_time),
+            }
+        } else {
+            self.footer.unwrap_or_default()
+        };
+
+        if !footer_text.is_empty() {
+            if let Some(footer_icon) = self.footer_icon {
+                embed = embed.footer(serenity::CreateEmbedFooter::new(footer_text).icon_url(footer_icon));
+            } else {
+                embed = embed.footer(serenity::CreateEmbedFooter::new(footer_text));
+            }
+        }
+
+        // Set thumbnail
+        if let Some(thumbnail) = self.thumbnail {
+            embed = embed.thumbnail(thumbnail);
+        }
+
+        // Set image
+        if let Some(image) = self.image {
+            embed = embed.image(image);
+        }
+
+        // Set timestamp
+        let timestamp = self.timestamp.unwrap_or_else(Utc::now);
+        embed = embed.timestamp(Timestamp::from(timestamp));
+
+        message.embed(embed)
+    }
+
+    /// Build a message with attachments
+    pub fn build_with_attachments(self, attachments: Vec<GraphAttachment>) -> CreateMessage {
+        let mut message = self.build();
+
+        // Add attachments
+        for attachment in attachments {
+            message = message.add_file(attachment.to_discord_attachment());
+        }
+
+        message
+    }
+}
+
+/// Message template for common message patterns
+#[derive(Debug, Clone)]
+pub struct MessageTemplate {
+    /// Template name
+    pub name: String,
+    /// Default title pattern
+    pub title_template: String,
+    /// Default description pattern
+    pub description_template: String,
+    /// Default message type
+    pub message_type: MessageType,
+    /// Default fields
+    pub default_fields: Vec<MetadataField>,
+}
+
+impl MessageTemplate {
+    /// Create a new message template
+    pub fn new<N: Into<String>, T: Into<String>, D: Into<String>>(
+        name: N,
+        title_template: T,
+        description_template: D,
+        message_type: MessageType,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            title_template: title_template.into(),
+            description_template: description_template.into(),
+            message_type,
+            default_fields: Vec::new(),
+        }
+    }
+
+    /// Add a default field to the template
+    pub fn with_field(mut self, field: MetadataField) -> Self {
+        self.default_fields.push(field);
+        self
+    }
+
+    /// Create a message builder from this template
+    pub fn builder(&self) -> DiscordMessageBuilder {
+        let mut builder = DiscordMessageBuilder::new(self.message_type.clone())
+            .title(&self.title_template)
+            .description(&self.description_template);
+
+        // Add default fields
+        for field in &self.default_fields {
+            builder = builder.field(field.clone());
+        }
+
+        builder
+    }
+
+    /// Apply template with replacements
+    pub fn apply_with_replacements(&self, replacements: &[(&str, &str)]) -> DiscordMessageBuilder {
+        let mut title = self.title_template.clone();
+        let mut description = self.description_template.clone();
+
+        // Apply replacements
+        for (placeholder, value) in replacements {
+            title = title.replace(placeholder, value);
+            description = description.replace(placeholder, value);
+        }
+
+        let mut builder = DiscordMessageBuilder::new(self.message_type.clone())
+            .title(title)
+            .description(description);
+
+        // Add default fields with replacements applied
+        for field in &self.default_fields {
+            let mut field_name = field.name.clone();
+            let mut field_value = field.value.clone();
+
+            for (placeholder, value) in replacements {
+                field_name = field_name.replace(placeholder, value);
+                field_value = field_value.replace(placeholder, value);
+            }
+
+            builder = builder.add_field(field_name, field_value, field.inline);
+        }
+
+        builder
+    }
+}
+
+/// Common message templates for graph operations
+pub struct MessageTemplates;
+
+impl MessageTemplates {
+    /// Template for successful graph generation
+    pub fn graph_success() -> MessageTemplate {
+        MessageTemplate::new(
+            "graph_success",
+            "Graph Generated Successfully",
+            "Your {graph_type} graph has been generated and is ready for viewing.",
+            MessageType::Graph,
+        )
+        .with_field(MetadataField::inline("Status", "✅ Complete"))
+        .with_field(MetadataField::inline("Type", "{graph_type}"))
+    }
+
+    /// Template for graph generation error
+    pub fn graph_error() -> MessageTemplate {
+        MessageTemplate::new(
+            "graph_error",
+            "Graph Generation Failed",
+            "There was an error generating your {graph_type} graph: {error}",
+            MessageType::Error,
+        )
+        .with_field(MetadataField::inline("Status", "❌ Failed"))
+        .with_field(MetadataField::inline("Type", "{graph_type}"))
+    }
+
+    /// Template for command acknowledgment
+    pub fn command_received() -> MessageTemplate {
+        MessageTemplate::new(
+            "command_received",
+            "Command Received",
+            "Processing your {command} command...",
+            MessageType::Info,
+        )
+        .with_field(MetadataField::inline("Command", "{command}"))
+        .with_field(MetadataField::inline("Status", "🔄 Processing"))
+    }
+
+    /// Template for permission errors
+    pub fn permission_error() -> MessageTemplate {
+        MessageTemplate::new(
+            "permission_error",
+            "Permission Denied",
+            "I don't have the required permissions to {action} in this channel.",
+            MessageType::Error,
+        )
+        .with_field(MetadataField::inline("Required", "{permissions}"))
+        .with_field(MetadataField::inline("Action", "{action}"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -982,6 +1451,283 @@ mod tests {
         
         let manager_custom = client.attachment_manager_with_limit(1024 * 1024);
         assert_eq!(manager_custom.max_file_size, 1024 * 1024);
+    }
+
+    #[test]
+    fn test_message_type_colors() {
+        assert_eq!(MessageType::Success.color(), Colour::from_rgb(34, 197, 94));
+        assert_eq!(MessageType::Info.color(), Colour::from_rgb(59, 130, 246));
+        assert_eq!(MessageType::Warning.color(), Colour::from_rgb(245, 158, 11));
+        assert_eq!(MessageType::Error.color(), Colour::from_rgb(239, 68, 68));
+        assert_eq!(MessageType::Graph.color(), Colour::from_rgb(147, 51, 234));
+        assert_eq!(MessageType::System.color(), Colour::from_rgb(107, 114, 128));
+    }
+
+    #[test]
+    fn test_message_type_emojis() {
+        assert_eq!(MessageType::Success.emoji(), "✅");
+        assert_eq!(MessageType::Info.emoji(), "ℹ️");
+        assert_eq!(MessageType::Warning.emoji(), "⚠️");
+        assert_eq!(MessageType::Error.emoji(), "❌");
+        assert_eq!(MessageType::Graph.emoji(), "📊");
+        assert_eq!(MessageType::System.emoji(), "🤖");
+    }
+
+    #[test]
+    fn test_metadata_field_creation() {
+        let field = MetadataField::new("Test", "Value");
+        assert_eq!(field.name, "Test");
+        assert_eq!(field.value, "Value");
+        assert!(!field.inline);
+
+        let inline_field = MetadataField::inline("Test", "Value");
+        assert_eq!(inline_field.name, "Test");
+        assert_eq!(inline_field.value, "Value");
+        assert!(inline_field.inline);
+    }
+
+    #[test]
+    fn test_metadata_field_with_inline() {
+        let field = MetadataField::new("Test", "Value").with_inline(true);
+        assert!(field.inline);
+
+        let field = MetadataField::inline("Test", "Value").with_inline(false);
+        assert!(!field.inline);
+    }
+
+    #[test]
+    fn test_discord_message_builder_creation() {
+        let builder = DiscordMessageBuilder::new(MessageType::Info);
+        
+        // Check that builder was created with correct defaults
+        assert_eq!(builder.message_type, MessageType::Info);
+        assert!(builder.content.is_none());
+        assert!(builder.title.is_none());
+        assert!(builder.description.is_none());
+        assert!(builder.include_generation_time);
+    }
+
+    #[test]
+    fn test_discord_message_builder_factory_methods() {
+        let graph_builder = DiscordMessageBuilder::graph();
+        assert_eq!(graph_builder.message_type, MessageType::Graph);
+
+        let success_builder = DiscordMessageBuilder::success();
+        assert_eq!(success_builder.message_type, MessageType::Success);
+
+        let info_builder = DiscordMessageBuilder::info();
+        assert_eq!(info_builder.message_type, MessageType::Info);
+
+        let warning_builder = DiscordMessageBuilder::warning();
+        assert_eq!(warning_builder.message_type, MessageType::Warning);
+
+        let error_builder = DiscordMessageBuilder::error();
+        assert_eq!(error_builder.message_type, MessageType::Error);
+
+        let system_builder = DiscordMessageBuilder::system();
+        assert_eq!(system_builder.message_type, MessageType::System);
+    }
+
+    #[test]
+    fn test_discord_message_builder_fluent_interface() {
+        let builder = DiscordMessageBuilder::graph()
+            .title("Test Title")
+            .description("Test Description")
+            .content("Test Content")
+            .author("Test Author")
+            .footer("Test Footer")
+            .thumbnail("https://example.com/thumb.png")
+            .image("https://example.com/image.png")
+            .include_generation_time(false)
+            .add_field("Field1", "Value1", true)
+            .add_field("Field2", "Value2", false);
+
+        // Verify all properties were set correctly
+        assert_eq!(builder.title.as_ref().unwrap(), "Test Title");
+        assert_eq!(builder.description.as_ref().unwrap(), "Test Description");
+        assert_eq!(builder.content.as_ref().unwrap(), "Test Content");
+        assert_eq!(builder.author.as_ref().unwrap(), "Test Author");
+        assert_eq!(builder.footer.as_ref().unwrap(), "Test Footer");
+        assert_eq!(builder.thumbnail.as_ref().unwrap(), "https://example.com/thumb.png");
+        assert_eq!(builder.image.as_ref().unwrap(), "https://example.com/image.png");
+        assert!(!builder.include_generation_time);
+        assert_eq!(builder.fields.len(), 2);
+        assert_eq!(builder.fields[0].name, "Field1");
+        assert_eq!(builder.fields[0].value, "Value1");
+        assert!(builder.fields[0].inline);
+        assert_eq!(builder.fields[1].name, "Field2");
+        assert_eq!(builder.fields[1].value, "Value2");
+        assert!(!builder.fields[1].inline);
+    }
+
+    #[test]
+    fn test_discord_message_builder_with_timestamp() {
+        let timestamp = Utc::now();
+        let builder = DiscordMessageBuilder::info()
+            .title("Test")
+            .timestamp(timestamp);
+
+        assert!(builder.timestamp.is_some());
+        assert_eq!(builder.timestamp.unwrap(), timestamp);
+    }
+
+    #[test]
+    fn test_discord_message_builder_author_with_icon() {
+        let builder = DiscordMessageBuilder::info()
+            .author_with_icon("Author Name", "https://example.com/icon.png");
+
+        assert_eq!(builder.author.as_ref().unwrap(), "Author Name");
+        assert_eq!(builder.author_icon.as_ref().unwrap(), "https://example.com/icon.png");
+    }
+
+    #[test]
+    fn test_discord_message_builder_footer_with_icon() {
+        let builder = DiscordMessageBuilder::info()
+            .footer_with_icon("Footer Text", "https://example.com/footer.png");
+
+        assert_eq!(builder.footer.as_ref().unwrap(), "Footer Text");
+        assert_eq!(builder.footer_icon.as_ref().unwrap(), "https://example.com/footer.png");
+    }
+
+    #[test]
+    fn test_message_template_creation() {
+        let template = MessageTemplate::new(
+            "test_template",
+            "Test {placeholder}",
+            "Description {placeholder}",
+            MessageType::Info,
+        );
+
+        assert_eq!(template.name, "test_template");
+        assert_eq!(template.title_template, "Test {placeholder}");
+        assert_eq!(template.description_template, "Description {placeholder}");
+        assert_eq!(template.message_type, MessageType::Info);
+        assert!(template.default_fields.is_empty());
+    }
+
+    #[test]
+    fn test_message_template_with_fields() {
+        let template = MessageTemplate::new(
+            "test_template",
+            "Test Title",
+            "Test Description",
+            MessageType::Success,
+        )
+        .with_field(MetadataField::inline("Status", "Success"))
+        .with_field(MetadataField::new("Details", "Additional info"));
+
+        assert_eq!(template.default_fields.len(), 2);
+        assert_eq!(template.default_fields[0].name, "Status");
+        assert_eq!(template.default_fields[0].value, "Success");
+        assert!(template.default_fields[0].inline);
+        assert_eq!(template.default_fields[1].name, "Details");
+        assert_eq!(template.default_fields[1].value, "Additional info");
+        assert!(!template.default_fields[1].inline);
+    }
+
+    #[test]
+    fn test_message_template_builder() {
+        let template = MessageTemplate::new(
+            "test_template",
+            "Test Title",
+            "Test Description",
+            MessageType::Warning,
+        )
+        .with_field(MetadataField::inline("Field", "Value"));
+
+        let builder = template.builder();
+        assert_eq!(builder.message_type, MessageType::Warning);
+        assert_eq!(builder.title.as_ref().unwrap(), "Test Title");
+        assert_eq!(builder.description.as_ref().unwrap(), "Test Description");
+        assert_eq!(builder.fields.len(), 1);
+    }
+
+    #[test]
+    fn test_message_template_apply_with_replacements() {
+        let template = MessageTemplate::new(
+            "test_template",
+            "Hello {name}",
+            "Welcome to {place}",
+            MessageType::Info,
+        )
+        .with_field(MetadataField::inline("User", "{name}"))
+        .with_field(MetadataField::new("Location", "{place}"));
+
+        let replacements = [
+            ("{name}", "Alice"),
+            ("{place}", "Wonderland"),
+        ];
+
+        let builder = template.apply_with_replacements(&replacements);
+        assert_eq!(builder.title.as_ref().unwrap(), "Hello Alice");
+        assert_eq!(builder.description.as_ref().unwrap(), "Welcome to Wonderland");
+        assert_eq!(builder.fields.len(), 2);
+        assert_eq!(builder.fields[0].name, "User");
+        assert_eq!(builder.fields[0].value, "Alice");
+        assert_eq!(builder.fields[1].name, "Location");
+        assert_eq!(builder.fields[1].value, "Wonderland");
+    }
+
+    #[test]
+    fn test_message_templates_graph_success() {
+        let template = MessageTemplates::graph_success();
+        assert_eq!(template.name, "graph_success");
+        assert_eq!(template.message_type, MessageType::Graph);
+        assert!(template.title_template.contains("Graph Generated Successfully"));
+        assert!(template.description_template.contains("{graph_type}"));
+        assert_eq!(template.default_fields.len(), 2);
+    }
+
+    #[test]
+    fn test_message_templates_graph_error() {
+        let template = MessageTemplates::graph_error();
+        assert_eq!(template.name, "graph_error");
+        assert_eq!(template.message_type, MessageType::Error);
+        assert!(template.title_template.contains("Graph Generation Failed"));
+        assert!(template.description_template.contains("{graph_type}"));
+        assert!(template.description_template.contains("{error}"));
+    }
+
+    #[test]
+    fn test_message_templates_command_received() {
+        let template = MessageTemplates::command_received();
+        assert_eq!(template.name, "command_received");
+        assert_eq!(template.message_type, MessageType::Info);
+        assert!(template.description_template.contains("{command}"));
+    }
+
+    #[test]
+    fn test_message_templates_permission_error() {
+        let template = MessageTemplates::permission_error();
+        assert_eq!(template.name, "permission_error");
+        assert_eq!(template.message_type, MessageType::Error);
+        assert!(template.title_template.contains("Permission Denied"));
+        assert!(template.description_template.contains("{action}"));
+    }
+
+    #[test]
+    fn test_discord_message_builder_build_with_attachments() {
+        // Create a test PNG attachment
+        let png_data = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52,
+        ];
+        
+        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data)
+            .expect("Failed to create attachment");
+
+        let builder = DiscordMessageBuilder::graph()
+            .title("Test Graph")
+            .description("Test graph with attachment");
+
+        let message = builder.build_with_attachments(vec![attachment]);
+        
+        // The message should be created successfully
+        // Note: We can't easily test the internal structure of CreateMessage 
+        // without actually sending it, but we can verify it builds without error
+        // We'll just verify the build completes without panicking
+        let _ = message;
     }
 
     #[test]
