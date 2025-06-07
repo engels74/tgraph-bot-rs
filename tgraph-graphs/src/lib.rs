@@ -3,6 +3,8 @@
 pub mod aggregator;
 pub mod cache;
 pub mod cached_aggregator;
+pub mod config;
+pub mod config_builder;
 pub mod daily_play_count;
 pub mod day_of_week;
 pub mod generator;
@@ -16,6 +18,8 @@ pub mod types;
 pub use aggregator::*;
 pub use cache::*;
 pub use cached_aggregator::*;
+pub use config::*;
+pub use config_builder::*;
 pub use daily_play_count::*;
 pub use day_of_week::*;
 pub use generator::GraphGenerator;
