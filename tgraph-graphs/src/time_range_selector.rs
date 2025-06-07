@@ -129,7 +129,7 @@ impl TimeRangeSelector {
         let validation = self.validate_range(&date_range)?;
         if !validation.is_valid {
             return Err(tgraph_common::TGraphError::config(
-                &validation.error_message.unwrap_or_else(|| "Invalid date range".to_string())
+                validation.error_message.unwrap_or_else(|| "Invalid date range".to_string())
             ));
         }
 
@@ -149,7 +149,7 @@ impl TimeRangeSelector {
         let validation = self.validate_range(&date_range)?;
         if !validation.is_valid {
             return Err(tgraph_common::TGraphError::config(
-                &validation.error_message.unwrap_or_else(|| "Invalid custom date range".to_string())
+                validation.error_message.unwrap_or_else(|| "Invalid custom date range".to_string())
             ));
         }
 

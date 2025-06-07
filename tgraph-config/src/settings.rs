@@ -5,6 +5,7 @@ use validator::Validate;
 
 /// Main application configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[derive(Default)]
 pub struct Config {
     /// Discord-related configuration
     #[validate]
@@ -195,18 +196,6 @@ pub struct LoggingConfig {
     pub max_files: u32,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            discord: DiscordConfig::default(),
-            tautulli: TautulliConfig::default(),
-            scheduling: SchedulingConfig::default(),
-            graph: GraphConfig::default(),
-            database: DatabaseConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
-}
 
 impl Config {
     /// Comprehensive validation of the entire configuration
@@ -570,7 +559,7 @@ logging:
         let config: Config = serde_yaml::from_str(yaml).expect("Failed to parse full config");
         assert!(config.validate().is_ok());
         assert_eq!(config.discord.channels.len(), 2);
-        assert_eq!(config.scheduling.enabled, true);
+        assert!(config.scheduling.enabled);
         assert_eq!(config.graph.background_color, "#2F3136");
     }
 

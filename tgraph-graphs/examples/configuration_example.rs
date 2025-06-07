@@ -1,11 +1,8 @@
 //! Example demonstrating the graph configuration and customization system
 
 use tgraph_graphs::{
-    ColorScheme, ConfigPresets, ConfigurationManager, GraphConfigBuilder,
-    DailyPlayCountConfig, DayOfWeekConfig, HourlyDistributionConfig,
-    MonthlyTrendsConfig, TopItemsConfig, DateRange, SortOrder, GridStyle,
+    ColorScheme, ConfigPresets, ConfigurationManager, GraphConfigBuilder, GridStyle,
 };
-use chrono::NaiveDate;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Graph Configuration System Example ===\n");

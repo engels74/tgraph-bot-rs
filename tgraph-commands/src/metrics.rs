@@ -157,7 +157,7 @@ impl MetricsManager {
         }
 
         // Store execution history
-        let mut executions = self.executions.entry(command.to_string()).or_insert_with(Vec::new);
+        let mut executions = self.executions.entry(command.to_string()).or_default();
         executions.push(execution.clone());
 
         // Trim history if it exceeds max size

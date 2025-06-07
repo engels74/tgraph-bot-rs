@@ -94,6 +94,7 @@ impl DayOfWeekGraph {
     }
 
     /// Get weekday short name
+    #[allow(dead_code)]
     fn weekday_name(&self, weekday: Weekday) -> &'static str {
         match weekday {
             Weekday::Mon => "Mon",

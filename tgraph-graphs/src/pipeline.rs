@@ -179,6 +179,7 @@ impl GraphGenerationTask {
 /// Manager for the async graph generation pipeline
 pub struct GraphPipeline {
     temp_manager: Arc<Mutex<TempFileManager>>,
+    #[allow(dead_code)]
     config: PipelineConfig,
 }
 

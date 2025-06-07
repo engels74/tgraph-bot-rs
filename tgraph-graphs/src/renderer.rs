@@ -187,7 +187,7 @@ impl GraphRenderer for LineChartRenderer {
             // Draw the line series
             chart.draw_series(LineSeries::new(line_data, &color))?
                 .label(&dataset.name)
-                .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &color));
+                .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], color));
         }
 
         // Draw legend if there are multiple datasets
@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn test_line_chart_renderer_creation() {
         let renderer = LineChartRenderer::new();
-        let default_renderer = LineChartRenderer::default();
+        let default_renderer = LineChartRenderer;
         
         // Both should be valid instances
         assert!(std::ptr::eq(&renderer as *const _, &renderer as *const _));

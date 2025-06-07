@@ -82,7 +82,7 @@ impl MonthlyTrendsGraph {
 
     /// Add a data point for a specific month
     pub fn add_data_point(&mut self, year: i32, month: u32, count: u32, label: Option<String>) {
-        if month >= 1 && month <= 12 {
+        if (1..=12).contains(&month) {
             self.data.push(MonthlyDataPoint { year, month, count, label });
         }
     }
@@ -111,6 +111,7 @@ impl MonthlyTrendsGraph {
     }
 
     /// Get full month name
+    #[allow(dead_code)]
     fn month_name(&self, month: u32) -> &'static str {
         match month {
             1 => "January", 2 => "February", 3 => "March", 4 => "April",
@@ -281,7 +282,7 @@ impl GraphRenderer for MonthlyTrendsGraph {
                 let year = *x as i32;
                 let month_frac = x - year as f64;
                 let month = ((month_frac * 12.0) + 1.0) as u32;
-                if month >= 1 && month <= 12 {
+                if (1..=12).contains(&month) {
                     format!("{} {}", self.month_abbr(month), year)
                 } else {
                     "".to_string()
@@ -307,8 +308,8 @@ impl GraphRenderer for MonthlyTrendsGraph {
 
                 // Draw line for this year
                 chart.draw_series(LineSeries::new(year_plot_data.clone(), &line_color))?
-                    .label(&format!("{}", year))
-                    .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &line_color));
+                    .label(format!("{}", year))
+                    .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], line_color));
 
                 // Draw data points if enabled
                 if self.show_data_points {
@@ -462,7 +463,7 @@ mod tests {
         let graph = MonthlyTrendsGraph::new();
         assert_eq!(graph.date_to_x_value(2023, 1), 2023.0); // January
         assert_eq!(graph.date_to_x_value(2023, 7), 2023.5); // July (6/12 = 0.5)
-        assert_eq!(graph.date_to_x_value(2023, 12), 2023.916666666666667); // December (11/12)
+        assert_eq!(graph.date_to_x_value(2023, 12), 2_023.916_666_666_666_7); // December (11/12)
     }
 
     #[test]

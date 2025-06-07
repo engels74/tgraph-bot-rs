@@ -361,7 +361,7 @@ impl TrendAnalyzer {
         
         for (value, date) in values.iter().zip(dates.iter()) {
             let weekday = date.weekday().num_days_from_monday();
-            weekly_data.entry(weekday).or_insert_with(Vec::new).push(*value);
+            weekly_data.entry(weekday).or_default().push(*value);
         }
 
         if weekly_data.len() < 7 {
@@ -407,7 +407,7 @@ impl TrendAnalyzer {
         
         for (value, date) in values.iter().zip(dates.iter()) {
             let month = date.month();
-            monthly_data.entry(month).or_insert_with(Vec::new).push(*value);
+            monthly_data.entry(month).or_default().push(*value);
         }
 
         if monthly_data.len() < 3 {

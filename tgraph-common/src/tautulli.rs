@@ -199,7 +199,7 @@ impl TautulliClient {
         debug!("Response body: {}", text);
 
         serde_json::from_str(&text)
-            .map_err(|e| TGraphError::from(e)) // serde_json::Error automatically converts
+            .map_err(TGraphError::from) // serde_json::Error automatically converts
     }
 
     /// Make a request and parse the JSON response

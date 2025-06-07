@@ -90,6 +90,7 @@ impl HourlyDistributionGraph {
     }
 
     /// Get hour in 12-hour format with AM/PM
+    #[allow(dead_code)]
     fn format_hour_12(&self, hour: u8) -> String {
         match hour {
             0 => "12 AM".to_string(),

@@ -567,6 +567,7 @@ impl GraphSpecificConfig for TopItemsConfig {
 
 /// Complete graph configuration combining all aspects
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CompleteGraphConfig {
     /// Base graph configuration (styling, dimensions)
     pub base: GraphConfig,
@@ -874,17 +875,6 @@ impl Default for ConfigurationManager {
     }
 }
 
-impl Default for CompleteGraphConfig {
-    fn default() -> Self {
-        Self {
-            base: GraphConfig::default(),
-            filters: FilterConfig::default(),
-            display: DisplayConfig::default(),
-            graph_specific: None,
-            metadata: ConfigMetadata::default(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -1007,7 +997,7 @@ mod tests {
     #[test]
     fn test_configuration_manager_defaults() {
         let manager = ConfigurationManager::default();
-        assert!(manager.get_presets().len() > 0);
+        assert!(!manager.get_presets().is_empty());
     }
 
     #[test]

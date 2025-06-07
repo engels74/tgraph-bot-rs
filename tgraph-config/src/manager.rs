@@ -135,7 +135,7 @@ impl ConfigManager {
     {
         let guard = self.config.read()
             .map_err(|_| ConfigManagerError::LockPoisoned)?;
-        Ok(f(&*guard))
+        Ok(f(&guard))
     }
     
     /// Execute a closure with mutable access to the configuration
@@ -669,7 +669,7 @@ mod tests {
         }
         
         // Should have results from all readers and the writer
-        assert!(results.len() >= num_readers * 3 + 1);
+        assert!(results.len() > num_readers * 3);
         
         // Writer should have executed
         assert!(results.iter().any(|r| r.contains("writer: updated")));

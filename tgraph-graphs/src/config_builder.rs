@@ -260,17 +260,11 @@ impl GraphConfigBuilder {
 
 /// Builder for DailyPlayCountConfig
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct DailyPlayCountConfigBuilder {
     config: DailyPlayCountConfig,
 }
 
-impl Default for DailyPlayCountConfigBuilder {
-    fn default() -> Self {
-        Self {
-            config: DailyPlayCountConfig::default(),
-        }
-    }
-}
 
 impl DailyPlayCountConfigBuilder {
     pub fn new() -> Self {
@@ -311,17 +305,11 @@ impl DailyPlayCountConfigBuilder {
 
 /// Builder for DayOfWeekConfig
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct DayOfWeekConfigBuilder {
     config: DayOfWeekConfig,
 }
 
-impl Default for DayOfWeekConfigBuilder {
-    fn default() -> Self {
-        Self {
-            config: DayOfWeekConfig::default(),
-        }
-    }
-}
 
 impl DayOfWeekConfigBuilder {
     pub fn new() -> Self {
@@ -360,17 +348,11 @@ impl DayOfWeekConfigBuilder {
 
 /// Builder for HourlyDistributionConfig
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct HourlyDistributionConfigBuilder {
     config: HourlyDistributionConfig,
 }
 
-impl Default for HourlyDistributionConfigBuilder {
-    fn default() -> Self {
-        Self {
-            config: HourlyDistributionConfig::default(),
-        }
-    }
-}
 
 impl HourlyDistributionConfigBuilder {
     pub fn new() -> Self {
@@ -405,17 +387,11 @@ impl HourlyDistributionConfigBuilder {
 
 /// Builder for MonthlyTrendsConfig
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct MonthlyTrendsConfigBuilder {
     config: MonthlyTrendsConfig,
 }
 
-impl Default for MonthlyTrendsConfigBuilder {
-    fn default() -> Self {
-        Self {
-            config: MonthlyTrendsConfig::default(),
-        }
-    }
-}
 
 impl MonthlyTrendsConfigBuilder {
     pub fn new() -> Self {
@@ -455,17 +431,11 @@ impl MonthlyTrendsConfigBuilder {
 
 /// Builder for TopItemsConfig
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct TopItemsConfigBuilder {
     config: TopItemsConfig,
 }
 
-impl Default for TopItemsConfigBuilder {
-    fn default() -> Self {
-        Self {
-            config: TopItemsConfig::default(),
-        }
-    }
-}
 
 impl TopItemsConfigBuilder {
     pub fn new() -> Self {
