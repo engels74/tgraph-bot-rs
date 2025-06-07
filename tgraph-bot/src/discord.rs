@@ -7,6 +7,7 @@ use std::path::Path;
 use std::fs;
 use tracing::{info, warn, error, debug};
 use tokio::sync::RwLock;
+use tokio::time::{sleep, Duration};
 use tgraph_config::settings::DiscordConfig;
 use chrono::{DateTime, Utc};
 
@@ -688,6 +689,338 @@ impl DiscordClient {
             has_client: self.client.is_some(),
             has_shard_manager: self.shard_manager.is_some(),
             token_configured: !self.config.token.is_empty(),
+        }
+    }
+}
+
+/// Configuration for retry logic when posting messages
+#[derive(Debug, Clone)]
+pub struct RetryConfig {
+    /// Maximum number of retry attempts (not including the initial attempt)
+    pub max_retries: u32,
+    /// Base delay for exponential backoff in milliseconds
+    pub base_delay_ms: u64,
+    /// Maximum delay cap in milliseconds
+    pub max_delay_ms: u64,
+    /// Jitter factor for randomizing delays (0.0 to 1.0)
+    pub jitter_factor: f64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_retries: 3,
+            base_delay_ms: 1000,  // 1 second
+            max_delay_ms: 30000,  // 30 seconds
+            jitter_factor: 0.1,   // 10% jitter
+        }
+    }
+}
+
+impl RetryConfig {
+    /// Create a new retry configuration
+    pub fn new(max_retries: u32, base_delay_ms: u64, max_delay_ms: u64) -> Self {
+        Self {
+            max_retries,
+            base_delay_ms,
+            max_delay_ms,
+            jitter_factor: 0.1,
+        }
+    }
+
+    /// Set jitter factor for randomizing delays
+    pub fn with_jitter(mut self, jitter_factor: f64) -> Self {
+        self.jitter_factor = jitter_factor.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Calculate delay for retry attempt with exponential backoff and jitter
+    pub fn calculate_delay(&self, attempt: u32) -> Duration {
+        let base_delay = self.base_delay_ms as f64;
+        let exponential_delay = base_delay * (2.0_f64.powi(attempt as i32));
+        
+        // Apply max delay cap
+        let capped_delay = exponential_delay.min(self.max_delay_ms as f64);
+        
+        // Add jitter to avoid thundering herd - simple deterministic approach
+        let jitter = ((attempt as f64 * 17.0) % 1.0 - 0.5) * 2.0 * self.jitter_factor;
+        let final_delay = capped_delay * (1.0 + jitter);
+        
+        Duration::from_millis(final_delay.max(0.0) as u64)
+    }
+}
+
+/// Result of a message posting operation
+#[derive(Debug, Clone)]
+pub struct PostResult {
+    /// Whether the message was posted successfully
+    pub success: bool,
+    /// The message ID if successful
+    pub message_id: Option<serenity::MessageId>,
+    /// Number of retry attempts made
+    pub attempts: u32,
+    /// Total time taken for the operation
+    pub duration: Duration,
+    /// Error message if unsuccessful
+    pub error: Option<String>,
+    /// Whether rate limit was encountered
+    pub rate_limited: bool,
+}
+
+impl PostResult {
+    /// Create a successful post result
+    pub fn success(message_id: serenity::MessageId, attempts: u32, duration: Duration, rate_limited: bool) -> Self {
+        Self {
+            success: true,
+            message_id: Some(message_id),
+            attempts,
+            duration,
+            error: None,
+            rate_limited,
+        }
+    }
+
+    /// Create a failed post result
+    pub fn failure(error: String, attempts: u32, duration: Duration, rate_limited: bool) -> Self {
+        Self {
+            success: false,
+            message_id: None,
+            attempts,
+            duration,
+            error: Some(error),
+            rate_limited,
+        }
+    }
+
+    /// Get a human-readable status message
+    pub fn status_message(&self) -> String {
+        if self.success {
+            let rate_limit_msg = if self.rate_limited { " (overcame rate limits)" } else { "" };
+            format!("✅ Message posted successfully after {} attempt(s) in {:.2}s{}", 
+                   self.attempts, self.duration.as_secs_f64(), rate_limit_msg)
+        } else {
+            let error_msg = self.error.as_deref().unwrap_or("Unknown error");
+            let rate_limit_msg = if self.rate_limited { " (rate limited)" } else { "" };
+            format!("❌ Failed to post message after {} attempt(s) in {:.2}s: {}{}", 
+                   self.attempts, self.duration.as_secs_f64(), error_msg, rate_limit_msg)
+        }
+    }
+}
+
+impl DiscordClient {
+    /// Post a message to a Discord channel with retry logic for rate limits
+    pub async fn post_message(
+        &self,
+        http: &serenity::Http,
+        channel_id: ChannelId,
+        message: CreateMessage,
+        retry_config: Option<RetryConfig>,
+    ) -> Result<PostResult> {
+        let retry_config = retry_config.unwrap_or_default();
+        let start_time = std::time::Instant::now();
+        let mut attempts = 0;
+        let mut rate_limited = false;
+
+        info!("Attempting to post message to channel {}", channel_id);
+
+        for attempt in 0..=retry_config.max_retries {
+            attempts += 1;
+            
+            debug!("Message post attempt {} of {} to channel {}", 
+                   attempt + 1, retry_config.max_retries + 1, channel_id);
+
+            match channel_id.send_message(http, message.clone()).await {
+                Ok(sent_message) => {
+                    let duration = start_time.elapsed();
+                    info!("Message posted successfully to channel {} after {} attempt(s) in {:.2}s", 
+                          channel_id, attempts, duration.as_secs_f64());
+                    
+                    return Ok(PostResult::success(sent_message.id, attempts, duration, rate_limited));
+                }
+                Err(serenity_error) => {
+                    let is_rate_limit = Self::is_rate_limit_error(&serenity_error);
+                    if is_rate_limit {
+                        rate_limited = true;
+                    }
+
+                    // Log the error with appropriate level
+                    if is_rate_limit {
+                        warn!("Rate limit encountered on attempt {} for channel {}: {}", 
+                              attempt + 1, channel_id, serenity_error);
+                    } else {
+                        error!("Error posting message on attempt {} to channel {}: {}", 
+                               attempt + 1, channel_id, serenity_error);
+                    }
+
+                    // If this is not the last attempt and it's a retryable error, wait and retry
+                    if attempt < retry_config.max_retries && Self::is_retryable_error(&serenity_error) {
+                        let delay = retry_config.calculate_delay(attempt);
+                        
+                        info!("Retrying message post to channel {} in {:.2}s (attempt {} of {})", 
+                              channel_id, delay.as_secs_f64(), attempt + 2, retry_config.max_retries + 1);
+                        
+                        sleep(delay).await;
+                        continue;
+                    } else {
+                        // This was the last attempt or non-retryable error
+                        let duration = start_time.elapsed();
+                        let error_msg = format!("Failed to post message: {}", serenity_error);
+                        
+                        error!("Giving up posting message to channel {} after {} attempt(s): {}", 
+                               channel_id, attempts, serenity_error);
+                        
+                        return Ok(PostResult::failure(error_msg, attempts, duration, rate_limited));
+                    }
+                }
+            }
+        }
+
+        // This should never be reached due to the loop logic, but just in case
+        let duration = start_time.elapsed();
+        Ok(PostResult::failure(
+            "Maximum retry attempts exceeded".to_string(),
+            attempts,
+            duration,
+            rate_limited,
+        ))
+    }
+
+    /// Post a message with graph attachment using retry logic
+    pub async fn post_graph_message(
+        &self,
+        http: &serenity::Http,
+        channel_id: ChannelId,
+        message_builder: DiscordMessageBuilder,
+        attachment: GraphAttachment,
+        retry_config: Option<RetryConfig>,
+    ) -> Result<PostResult> {
+        // First check permissions
+        let permissions = self.check_channel_permissions(http, channel_id).await;
+        if !permissions.can_post_graphs() {
+            let error_msg = format!("Insufficient permissions to post graphs: {}", permissions.status_message());
+            warn!("{}", error_msg);
+            return Ok(PostResult::failure(
+                error_msg,
+                1,
+                Duration::from_millis(0),
+                false,
+            ));
+        }
+
+        info!("Posting graph message to channel {} with attachment: {} ({})", 
+              channel_id, attachment.filename, attachment.size_human());
+
+        // Build message with attachment
+        let message = message_builder.build_with_attachments(vec![attachment]);
+
+        // Post with retry logic
+        self.post_message(http, channel_id, message, retry_config).await
+    }
+
+    /// Post a graph to Discord with complete validation and retry logic
+    pub async fn post_graph<P: AsRef<Path>>(
+        &self,
+        http: &serenity::Http,
+        channel_id: ChannelId,
+        graph_path: P,
+        title: Option<&str>,
+        description: Option<&str>,
+        retry_config: Option<RetryConfig>,
+    ) -> Result<PostResult> {
+        let start_time = std::time::Instant::now();
+
+        // Validate and prepare attachment
+        debug!("Preparing graph attachment from path: {}", graph_path.as_ref().display());
+        let attachment = match self.validate_and_prepare_attachment(http, channel_id, graph_path).await {
+            Ok(attachment) => attachment,
+            Err(e) => {
+                let error_msg = format!("Failed to prepare graph attachment: {}", e);
+                error!("{}", error_msg);
+                return Ok(PostResult::failure(
+                    error_msg,
+                    1,
+                    start_time.elapsed(),
+                    false,
+                ));
+            }
+        };
+
+        // Build message
+        let mut message_builder = DiscordMessageBuilder::graph();
+        
+        if let Some(title) = title {
+            message_builder = message_builder.title(title);
+        }
+        
+        if let Some(description) = description {
+            message_builder = message_builder.description(description);
+        }
+
+        // Add metadata about the graph
+        message_builder = message_builder
+            .add_field("File Size", attachment.size_human(), true)
+            .add_field("Format", "PNG", true);
+
+        // Post the graph
+        self.post_graph_message(http, channel_id, message_builder, attachment, retry_config).await
+    }
+
+    /// Post a simple text message with retry logic
+    pub async fn post_simple_message(
+        &self,
+        http: &serenity::Http,
+        channel_id: ChannelId,
+        content: &str,
+        message_type: Option<MessageType>,
+        retry_config: Option<RetryConfig>,
+    ) -> Result<PostResult> {
+        // Check basic send message permission
+        let permissions = self.check_channel_permissions(http, channel_id).await;
+        if !permissions.can_send_messages {
+            let error_msg = format!("No permission to send messages: {}", permissions.status_message());
+            warn!("{}", error_msg);
+            return Ok(PostResult::failure(
+                error_msg,
+                1,
+                Duration::from_millis(0),
+                false,
+            ));
+        }
+
+        let message_type = message_type.unwrap_or(MessageType::Info);
+        let message_builder = DiscordMessageBuilder::new(message_type)
+            .content(content);
+
+        let message = message_builder.build();
+        self.post_message(http, channel_id, message, retry_config).await
+    }
+
+    /// Check if an error is due to rate limiting
+    fn is_rate_limit_error(error: &serenity::Error) -> bool {
+        // Simple string-based check for rate limit error
+        let error_str = error.to_string().to_lowercase();
+        error_str.contains("rate limit") || error_str.contains("429")
+    }
+
+    /// Check if an error is retryable
+    fn is_retryable_error(error: &serenity::Error) -> bool {
+        // For now, retry on any HTTP error that might be temporary
+        match error {
+            serenity::Error::Http(_) => {
+                let error_str = error.to_string().to_lowercase();
+                // Retry on rate limits, server errors, or network issues
+                error_str.contains("rate limit") 
+                    || error_str.contains("429")
+                    || error_str.contains("500")
+                    || error_str.contains("502")
+                    || error_str.contains("503")
+                    || error_str.contains("504")
+                    || error_str.contains("timeout")
+                    || error_str.contains("connection")
+            }
+            // Gateway connection issues might be retryable
+            serenity::Error::Gateway(_) => true,
+            _ => false,
         }
     }
 }
@@ -1732,22 +2065,190 @@ mod tests {
 
     #[test]
     fn test_graph_attachment_to_discord_attachment() {
-        let png_data = vec![
-            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-            0x00, 0x00, 0x00, 0x0D,
-            0x49, 0x48, 0x44, 0x52,
-        ];
-
-        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data.clone())
+        let png_data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52];
+        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data)
             .unwrap()
             .with_description("Test graph attachment");
 
-        let _discord_attachment = attachment.to_discord_attachment();
+        let discord_attachment = attachment.to_discord_attachment();
         
-        // We can't easily test the internal structure of CreateAttachment,
-        // but we can verify the conversion doesn't panic and returns something
-        // The actual functionality would be tested in integration tests
-        // For now, just ensure it compiles and runs
+        // We can't directly test the CreateAttachment structure since it's opaque,
+        // but we can verify our attachment was created successfully
         assert_eq!(attachment.filename, "test.png");
+        assert_eq!(attachment.description, Some("Test graph attachment".to_string()));
+    }
+
+    #[test]
+    fn test_retry_config_default() {
+        let config = RetryConfig::default();
+        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.base_delay_ms, 1000);
+        assert_eq!(config.max_delay_ms, 30000);
+        assert_eq!(config.jitter_factor, 0.1);
+    }
+
+    #[test]
+    fn test_retry_config_new() {
+        let config = RetryConfig::new(5, 2000, 60000);
+        assert_eq!(config.max_retries, 5);
+        assert_eq!(config.base_delay_ms, 2000);
+        assert_eq!(config.max_delay_ms, 60000);
+        assert_eq!(config.jitter_factor, 0.1);
+    }
+
+    #[test]
+    fn test_retry_config_with_jitter() {
+        let config = RetryConfig::new(3, 1000, 30000).with_jitter(0.2);
+        assert_eq!(config.jitter_factor, 0.2);
+        
+        // Test clamp behavior
+        let config_high = RetryConfig::new(3, 1000, 30000).with_jitter(1.5);
+        assert_eq!(config_high.jitter_factor, 1.0);
+        
+        let config_low = RetryConfig::new(3, 1000, 30000).with_jitter(-0.5);
+        assert_eq!(config_low.jitter_factor, 0.0);
+    }
+
+    #[test]
+    fn test_retry_config_calculate_delay() {
+        let config = RetryConfig::new(3, 1000, 10000).with_jitter(0.0); // No jitter for predictable testing
+        
+        // First attempt (attempt 0)
+        let delay0 = config.calculate_delay(0);
+        assert_eq!(delay0.as_millis(), 1000); // base_delay_ms * 2^0 = 1000
+        
+        // Second attempt (attempt 1)
+        let delay1 = config.calculate_delay(1);
+        assert_eq!(delay1.as_millis(), 2000); // base_delay_ms * 2^1 = 2000
+        
+        // Third attempt (attempt 2)
+        let delay2 = config.calculate_delay(2);
+        assert_eq!(delay2.as_millis(), 4000); // base_delay_ms * 2^2 = 4000
+        
+        // Fourth attempt (attempt 3)
+        let delay3 = config.calculate_delay(3);
+        assert_eq!(delay3.as_millis(), 8000); // base_delay_ms * 2^3 = 8000
+        
+        // Fifth attempt (attempt 4) - should hit the max delay cap
+        let delay4 = config.calculate_delay(4);
+        assert_eq!(delay4.as_millis(), 10000); // capped at max_delay_ms
+    }
+
+    #[test]
+    fn test_retry_config_calculate_delay_with_jitter() {
+        let config = RetryConfig::new(3, 1000, 30000).with_jitter(0.1);
+        
+        // With jitter, delays should vary but be within expected range
+        let delay0 = config.calculate_delay(0);
+        let base_delay = 1000u64;
+        let min_delay = (base_delay as f64 * 0.9) as u64; // 10% jitter down
+        let max_delay = (base_delay as f64 * 1.1) as u64; // 10% jitter up
+        
+        assert!(delay0.as_millis() >= min_delay as u128);
+        assert!(delay0.as_millis() <= max_delay as u128);
+    }
+
+    #[test]
+    fn test_post_result_success() {
+        use std::time::Duration;
+        use poise::serenity_prelude::MessageId;
+        
+        let message_id = MessageId::new(123456789);
+        let result = PostResult::success(message_id, 2, Duration::from_secs(3), true);
+        
+        assert!(result.success);
+        assert_eq!(result.message_id, Some(message_id));
+        assert_eq!(result.attempts, 2);
+        assert_eq!(result.duration, Duration::from_secs(3));
+        assert!(result.rate_limited);
+        assert!(result.error.is_none());
+    }
+
+    #[test]
+    fn test_post_result_failure() {
+        use std::time::Duration;
+        
+        let result = PostResult::failure("Connection failed".to_string(), 3, Duration::from_secs(10), false);
+        
+        assert!(!result.success);
+        assert!(result.message_id.is_none());
+        assert_eq!(result.attempts, 3);
+        assert_eq!(result.duration, Duration::from_secs(10));
+        assert!(!result.rate_limited);
+        assert_eq!(result.error, Some("Connection failed".to_string()));
+    }
+
+    #[test]
+    fn test_post_result_status_message() {
+        use std::time::Duration;
+        use poise::serenity_prelude::MessageId;
+        
+        // Success message
+        let success_result = PostResult::success(MessageId::new(123), 1, Duration::from_millis(1500), false);
+        let success_msg = success_result.status_message();
+        assert!(success_msg.contains("✅"));
+        assert!(success_msg.contains("1 attempt"));
+        assert!(success_msg.contains("1.50s"));
+        
+        // Success with rate limiting
+        let success_rate_limited = PostResult::success(MessageId::new(456), 3, Duration::from_secs(5), true);
+        let success_rate_msg = success_rate_limited.status_message();
+        assert!(success_rate_msg.contains("✅"));
+        assert!(success_rate_msg.contains("3 attempt"));
+        assert!(success_rate_msg.contains("overcame rate limits"));
+        
+        // Failure message
+        let failure_result = PostResult::failure("Network error".to_string(), 2, Duration::from_secs(2), false);
+        let failure_msg = failure_result.status_message();
+        assert!(failure_msg.contains("❌"));
+        assert!(failure_msg.contains("2 attempt"));
+        assert!(failure_msg.contains("Network error"));
+        
+        // Failure with rate limiting
+        let failure_rate_limited = PostResult::failure("Rate limited".to_string(), 4, Duration::from_secs(8), true);
+        let failure_rate_msg = failure_rate_limited.status_message();
+        assert!(failure_rate_msg.contains("❌"));
+        assert!(failure_rate_msg.contains("4 attempt"));
+        assert!(failure_rate_msg.contains("rate limited"));
+    }
+
+    #[test]
+    fn test_is_rate_limit_error() {
+        use poise::serenity_prelude as serenity;
+        
+        // Test with a mock error containing rate limit keywords
+        let rate_limit_error = serenity::Error::Other("Rate limit exceeded");
+        assert!(DiscordClient::is_rate_limit_error(&rate_limit_error));
+        
+        let status_429_error = serenity::Error::Other("HTTP 429 Too Many Requests");
+        assert!(DiscordClient::is_rate_limit_error(&status_429_error));
+        
+        let normal_error = serenity::Error::Other("Invalid channel");
+        assert!(!DiscordClient::is_rate_limit_error(&normal_error));
+    }
+
+    #[test]
+    fn test_is_retryable_error() {
+        use poise::serenity_prelude as serenity;
+        
+        // Gateway errors should be retryable
+        let gateway_error = serenity::Error::Gateway(serenity::GatewayError::InvalidShardData);
+        assert!(DiscordClient::is_retryable_error(&gateway_error));
+        
+        // Non-HTTP/Gateway errors should generally not be retryable
+        let io_error = std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid JSON");
+        let json_error = serenity::Error::Json(serde_json::Error::io(io_error));
+        assert!(!DiscordClient::is_retryable_error(&json_error));
+        
+        let other_error = serenity::Error::Other("Some other error");
+        assert!(!DiscordClient::is_retryable_error(&other_error));
+        
+        // Test the string-based retry logic with mock HTTP errors
+        // Since we're using string matching, we can test with HTTP errors that contain the keywords
+        let timeout_http_error = serenity::Error::Other("Connection timeout occurred");
+        // For Other errors, it won't match HTTP pattern, but we can test the string logic separately
+        
+        // Test that our string-based checking works for common error messages
+        assert!(!DiscordClient::is_retryable_error(&timeout_http_error)); // Other errors are not retryable in our implementation
     }
 } 
