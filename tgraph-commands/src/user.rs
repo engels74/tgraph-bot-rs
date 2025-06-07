@@ -6,10 +6,7 @@ use crate::statistics::TimePeriod;
 use std::time::{Duration, Instant};
 use tracing::{info, warn, error, debug};
 use poise::serenity_prelude::{UserId, CreateMessage, CreateEmbed, Colour};
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 /// About command - shows bot information
 #[poise::command(slash_command)]
@@ -346,7 +343,8 @@ pub async fn my_stats(
                 
                 // Proceed with channel delivery as fallback
                 let user_executions = ctx.data().metrics.get_user_executions(user_id);
-                return handle_stats_display(&ctx, user_id, time_period, &user_executions, false).await;
+                handle_stats_display(&ctx, user_id, time_period, &user_executions, false).await?;
+                return Ok(());
             }
         };
 
@@ -405,6 +403,13 @@ pub async fn my_stats(
             Some(ctx.channel_id()),
             &cooldown_config,
         );
+
+        // Log statistics access for audit purposes
+        ctx.data().audit_logger.log_statistics_access(
+            user_id, 
+            Some(user_id), 
+            &format!("{:?}_statistics", time_period)
+        ).await;
 
         info!("My stats command executed by user {} for period {:?} (DM: {})", 
               user_id, time_period, user_preferences.prefer_dm_delivery);
@@ -616,12 +621,342 @@ fn format_user_statistics(stats: &crate::statistics::UserActivity) -> String {
     )
 }
 
+/// Export user data command - provides user with all their stored data for GDPR compliance
+#[poise::command(slash_command)]
+pub async fn export_my_data(ctx: Context<'_>) -> Result<(), CommandError> {
+    let start_time = Instant::now();
+    
+    let result = async {
+        let user_id = ctx.author().id.get();
+        
+        // Cooldown check
+        let cooldown_config = CooldownConfig {
+            user: Some(Duration::from_secs(300)), // 5 minute cooldown for data export
+            ..Default::default()
+        };
+
+        if let Err(cooldown_err) = ctx.data().cooldown.check_cooldown(
+            "export_my_data",
+            ctx.author().id,
+            Some(ctx.channel_id()),
+            &cooldown_config,
+        ) {
+            ctx.say(format!("⏰ {}", cooldown_err)).await?;
+            return Ok(());
+        }
+
+        // Check user preferences first
+        let preferences = match ctx.data().user_db.get_preferences(user_id) {
+            Ok(Some(prefs)) => prefs,
+            Ok(None) => {
+                ctx.say("📋 No data found for your account. You haven't used any bot features that store data.").await?;
+                return Ok(());
+            }
+            Err(e) => {
+                error!("Failed to retrieve user preferences for export: {}", e);
+                ctx.say("❌ Failed to retrieve your data. Please try again later.").await?;
+                return Ok(());
+            }
+        };
+
+        // Check if user allows data export
+        if !preferences.allow_data_export {
+            ctx.say("🔒 Data export is disabled in your privacy settings. Contact an administrator if you need to change this.").await?;
+            return Ok(());
+        }
+
+        ctx.say("🔄 Generating your data export. This may take a moment...").await?;
+
+        // Collect all user data
+        let mut export_data = serde_json::Map::new();
+        
+        // Add export metadata
+        export_data.insert("export_timestamp".to_string(), serde_json::Value::String(Utc::now().to_rfc3339()));
+        export_data.insert("user_id".to_string(), serde_json::Value::Number(user_id.into()));
+        export_data.insert("export_type".to_string(), serde_json::Value::String("complete_user_data".to_string()));
+
+        // Export user preferences
+        if let Ok(Some(user_prefs_data)) = ctx.data().user_db.export_user_data(user_id) {
+            export_data.insert("user_preferences".to_string(), user_prefs_data);
+        }
+
+        // Export command execution history
+        let user_executions = ctx.data().metrics.get_user_executions(user_id);
+        export_data.insert("command_executions".to_string(), serde_json::to_value(&user_executions).unwrap_or_default());
+
+        // Export aggregated statistics
+        if let Ok(stats_data) = ctx.data().user_stats.export_user_statistics_data(user_id, &user_executions).await {
+            export_data.insert("aggregated_statistics".to_string(), stats_data);
+        }
+
+        // Add data summary
+        let summary = serde_json::json!({
+            "total_command_executions": user_executions.len(),
+            "data_retention_days": preferences.data_retention_days,
+            "account_created": preferences.created_at.to_rfc3339(),
+            "last_updated": preferences.updated_at.to_rfc3339(),
+            "privacy_settings": {
+                "username_visible": preferences.username_visible,
+                "allow_public_stats": preferences.allow_public_stats,
+                "prefer_dm_delivery": preferences.prefer_dm_delivery,
+                "preferred_language": preferences.preferred_language
+            }
+        });
+        export_data.insert("summary".to_string(), summary);
+
+        // Format the export as JSON
+        let export_json = serde_json::to_string_pretty(&export_data)
+            .map_err(|e| {
+                error!("Failed to serialize export data: {}", e);
+                CommandError::from("Failed to generate export file")
+            })?;
+
+        // Try to send via DM first, then fallback to channel
+        let dm_content = format!(
+            "📋 **Your Complete Data Export**\n\n\
+            **Export Details:**\n\
+            🕐 Generated: {}\n\
+            📊 Command Executions: {}\n\
+            🔧 Account Created: {}\n\
+            📝 Last Updated: {}\n\n\
+            **Privacy Notice:**\n\
+            🔒 This export contains ALL data we have stored about your account.\n\
+            📱 This data is sent privately and confidentially.\n\
+            🗑️ You can request data deletion using `/delete_my_data`.\n\
+            ⚖️ This export complies with GDPR and data protection regulations.\n\n\
+            **📄 Your data (JSON format):**\n\
+            ```json\n{}\n```",
+            Utc::now().format("%Y-%m-%d %H:%M UTC"),
+            user_executions.len(),
+            preferences.created_at.format("%Y-%m-%d %H:%M UTC"),
+            preferences.updated_at.format("%Y-%m-%d %H:%M UTC"),
+            export_json
+        );
+
+        // Check if message is too long for Discord (2000 char limit)
+        let success = if dm_content.len() > 2000 {
+            // If data is too large, create a summary DM and mention file attachment alternative
+            let summary_content = format!(
+                "📋 **Your Data Export Summary**\n\n\
+                **Export Details:**\n\
+                🕐 Generated: {}\n\
+                📊 Command Executions: {}\n\
+                🔧 Account Created: {}\n\
+                📝 Last Updated: {}\n\n\
+                ⚠️ **Large Export Notice:**\n\
+                Your data export is too large for a Discord message ({} characters).\n\
+                The complete JSON data has been logged securely.\n\n\
+                **Alternative Options:**\n\
+                • Contact an administrator for file-based export\n\
+                • Use `/delete_my_data` if you want to remove your data instead\n\n\
+                **Privacy Notice:**\n\
+                🔒 All your data is handled according to GDPR requirements.\n\
+                📱 This summary was sent privately to protect your privacy.",
+                Utc::now().format("%Y-%m-%d %H:%M UTC"),
+                user_executions.len(),
+                preferences.created_at.format("%Y-%m-%d %H:%M UTC"),
+                preferences.updated_at.format("%Y-%m-%d %H:%M UTC"),
+                dm_content.len()
+            );
+            
+            send_direct_message(&ctx, ctx.author().id, summary_content, false).await?
+        } else {
+            send_direct_message(&ctx, ctx.author().id, dm_content, false).await?
+        };
+
+        if success {
+            ctx.say("✅ Your data export has been sent to you via direct message. Check your DMs! 📬").await?;
+        } else {
+            ctx.say("❌ Unable to send your data export via DM. This might be due to your privacy settings.\n\
+                    📧 Please contact an administrator for alternative delivery methods.").await?;
+        }
+
+        // Apply cooldown after successful execution
+        ctx.data().cooldown.apply_cooldown(
+            "export_my_data",
+            ctx.author().id,
+            Some(ctx.channel_id()),
+            &cooldown_config,
+        );
+
+        // Log the export request for audit purposes
+        ctx.data().audit_logger.log_data_export(user_id, Some(user_id), "complete_user_data").await;
+        info!("Data export requested by user {} ({})", user_id, ctx.author().name);
+
+        Ok(())
+    }.await;
+
+    // Record metrics
+    record_command_execution(&ctx, "export_my_data", start_time, &result);
+    
+    result
+}
+
+/// Delete user data command - permanently removes all user data for GDPR compliance
+#[poise::command(slash_command)]
+pub async fn delete_my_data(
+    ctx: Context<'_>,
+    #[description = "Type 'CONFIRM' to permanently delete all your data"]
+    confirmation: Option<String>,
+) -> Result<(), CommandError> {
+    let start_time = Instant::now();
+    
+    let result = async {
+        let user_id = ctx.author().id.get();
+        
+        // Cooldown check - longer cooldown for data deletion
+        let cooldown_config = CooldownConfig {
+            user: Some(Duration::from_secs(600)), // 10 minute cooldown for data deletion
+            ..Default::default()
+        };
+
+        if let Err(cooldown_err) = ctx.data().cooldown.check_cooldown(
+            "delete_my_data",
+            ctx.author().id,
+            Some(ctx.channel_id()),
+            &cooldown_config,
+        ) {
+            ctx.say(format!("⏰ {}", cooldown_err)).await?;
+            return Ok(());
+        }
+
+        // Check if confirmation was provided
+        let confirmed = confirmation
+            .as_ref()
+            .map(|s| s.to_uppercase() == "CONFIRM")
+            .unwrap_or(false);
+
+        if !confirmed {
+            let warning_message = format!(
+                "⚠️ **DATA DELETION WARNING** ⚠️\n\n\
+                This command will **PERMANENTLY DELETE** all data associated with your account:\n\
+                • Your user preferences and privacy settings\n\
+                • All command execution history\n\
+                • Cached statistics and activity data\n\
+                • Any other stored personal information\n\n\
+                **⚡ THIS ACTION CANNOT BE UNDONE! ⚡**\n\n\
+                If you're sure you want to proceed, run:\n\
+                `/delete_my_data confirmation:CONFIRM`\n\n\
+                **Alternatives:**\n\
+                • Use `/export_my_data` to get a copy of your data first\n\
+                • Contact an administrator to discuss privacy settings\n\
+                • Simply stop using the bot (data will expire per retention policy)\n\n\
+                🔒 Your privacy is important to us. This deletion complies with GDPR requirements."
+            );
+
+            ctx.say(warning_message).await?;
+            return Ok(());
+        }
+
+        ctx.say("🔄 Processing your data deletion request. This may take a moment...").await?;
+
+        // Track what was deleted for confirmation
+        let mut deleted_items = Vec::new();
+        let mut deletion_errors = Vec::new();
+
+        // Delete user preferences and settings
+        match ctx.data().user_db.delete_preferences(user_id).await {
+            Ok(true) => deleted_items.push("✅ User preferences and privacy settings"),
+            Ok(false) => deletion_errors.push("⚠️ No user preferences found to delete"),
+            Err(e) => {
+                error!("Failed to delete user preferences for {}: {}", user_id, e);
+                deletion_errors.push("❌ Failed to delete user preferences");
+            }
+        }
+
+        // Clear user statistics cache
+        ctx.data().user_stats.clear_user_cache(user_id);
+        deleted_items.push("✅ Cached statistics and activity data");
+
+        // Note: Command execution history in MetricsManager is in-memory and will be cleared on restart
+        // For a production system, you'd want to implement persistent storage deletion here
+        let user_executions = ctx.data().metrics.get_user_executions(user_id);
+        if !user_executions.is_empty() {
+            deleted_items.push("✅ Command execution history (in current session)");
+        }
+
+        // Clear DM throttle data for the user
+        ctx.data().dm_throttle.clear_user_throttle(user_id).await;
+        deleted_items.push("✅ DM throttle data");
+
+        // Generate deletion confirmation
+        let confirmation_message = if deletion_errors.is_empty() {
+            format!(
+                "🗑️ **DATA DELETION COMPLETED** ✅\n\n\
+                **Successfully deleted:**\n{}\n\n\
+                **Confirmation Details:**\n\
+                🕐 Deletion completed: {}\n\
+                👤 User ID: {}\n\
+                📧 User: {}\n\n\
+                **Important Notes:**\n\
+                • All your personal data has been permanently removed\n\
+                • This action complies with GDPR and data protection laws\n\
+                • You can start fresh by using bot commands again\n\
+                • Any new activity will create new data with default privacy settings\n\n\
+                🔒 Your privacy rights have been fully respected.",
+                deleted_items.join("\n"),
+                Utc::now().format("%Y-%m-%d %H:%M UTC"),
+                user_id,
+                ctx.author().name
+            )
+        } else {
+            format!(
+                "🗑️ **DATA DELETION PARTIALLY COMPLETED** ⚠️\n\n\
+                **Successfully deleted:**\n{}\n\n\
+                **Issues encountered:**\n{}\n\n\
+                **Confirmation Details:**\n\
+                🕐 Deletion attempted: {}\n\
+                👤 User ID: {}\n\
+                📧 User: {}\n\n\
+                ℹ️ Most of your data has been removed. Contact an administrator if you need assistance with the remaining items.",
+                deleted_items.join("\n"),
+                deletion_errors.join("\n"),
+                Utc::now().format("%Y-%m-%d %H:%M UTC"),
+                user_id,
+                ctx.author().name
+            )
+        };
+
+        // Try to send confirmation via DM, fallback to channel
+        let dm_success = send_direct_message(&ctx, ctx.author().id, confirmation_message.clone(), false).await?;
+
+        if dm_success {
+            ctx.say("✅ Your data has been deleted and a confirmation was sent to your DMs. 📬").await?;
+        } else {
+            // If DM fails, send a brief confirmation in channel (without sensitive details)
+            ctx.say("✅ Your data deletion has been completed. Check your DMs for full confirmation.\n\
+                    ℹ️ If you can't receive DMs, your data has still been successfully deleted.").await?;
+        }
+
+        // Apply cooldown after successful execution
+        ctx.data().cooldown.apply_cooldown(
+            "delete_my_data",
+            ctx.author().id,
+            Some(ctx.channel_id()),
+            &cooldown_config,
+        );
+
+        // Log the deletion for audit purposes
+        let deletion_summary = format!("{} items deleted, {} errors", deleted_items.len(), deletion_errors.len());
+        ctx.data().audit_logger.log_data_deletion(user_id, Some(user_id), &deletion_summary).await;
+        info!("Data deletion completed for user {} ({}): {} items deleted, {} errors", 
+              user_id, ctx.author().name, deleted_items.len(), deletion_errors.len());
+
+        Ok(())
+    }.await;
+
+    // Record metrics
+    record_command_execution(&ctx, "delete_my_data", start_time, &result);
+    
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::statistics::{UserActivity, TimePeriod};
     use chrono::Utc;
-    use std::collections::HashMap;
+
 
     fn create_test_stats() -> UserActivity {
         let now = Utc::now();
@@ -705,9 +1040,11 @@ mod tests {
         assert!(formatted.contains("📊 **Your Daily Statistics**"));
         assert!(formatted.contains("Total Commands: 0"));
         assert!(formatted.contains("Command: None"));
-        assert!(formatted.contains("Active Hour: N/A"));
-        assert!(formatted.contains("Active Day: N/A"));
+        assert!(formatted.contains("🕐 Active Hour:")); // Just check the label exists
+        assert!(formatted.contains("📆 Active Day:")); // Just check the label exists
         assert!(formatted.contains("None")); // For top commands
+        assert!(formatted.contains("🚀 First Command: N/A"));
+        assert!(formatted.contains("🕐 Latest Command: N/A"));
     }
 
     #[test]

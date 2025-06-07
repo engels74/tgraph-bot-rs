@@ -1,6 +1,7 @@
 //! Command implementations for TGraph Telegram bot
 
 pub mod admin;
+pub mod audit;
 pub mod graph;
 pub mod user;
 pub mod registry;
@@ -19,4 +20,5 @@ pub use context::{CommandContext, create_command_context};
 pub use metrics::{MetricsManager, CommandMetrics, CommandExecution, MetricsReport};
 pub use database::{UserDatabase, UserPreferences};
 pub use statistics::{UserStatisticsManager, UserActivity, TimePeriod};
-pub use dm_throttle::DmThrottleManager; 
+pub use dm_throttle::DmThrottleManager;
+pub use audit::{AuditLogger, AuditEventType, AuditLogEntry}; 

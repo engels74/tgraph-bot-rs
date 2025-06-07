@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tgraph_config::Config;
 use tgraph_i18n::I18nManager;
-use crate::{Permissions, CooldownManager, MetricsManager, UserDatabase, UserStatisticsManager, DmThrottleManager};
+use crate::{Permissions, CooldownManager, MetricsManager, UserDatabase, UserStatisticsManager, DmThrottleManager, AuditLogger};
 use tracing::info;
 use tokio::time::interval;
 
@@ -29,6 +29,8 @@ pub struct CommandContext {
     pub user_stats: Arc<UserStatisticsManager>,
     /// DM throttle manager to prevent DM abuse
     pub dm_throttle: Arc<DmThrottleManager>,
+    /// Audit logger for GDPR compliance and data protection tracking
+    pub audit_logger: Arc<AuditLogger>,
 }
 
 /// Error type for commands
@@ -148,6 +150,9 @@ pub async fn create_command_context(config: Config) -> Result<CommandContext, Co
     // Initialize DM throttle manager (5 minute throttle between DMs per user)
     let dm_throttle = Arc::new(DmThrottleManager::new(Duration::from_secs(300)));
 
+    // Initialize audit logger for GDPR compliance
+    let audit_logger = Arc::new(AuditLogger::new(10000)); // Keep last 10,000 audit entries
+
     // Start background cleanup tasks
     let metrics_arc = Arc::new(metrics);
     let _cleanup_handle = start_metrics_cleanup_task(metrics_arc.clone());
@@ -163,5 +168,6 @@ pub async fn create_command_context(config: Config) -> Result<CommandContext, Co
         user_db,
         user_stats,
         dm_throttle,
+        audit_logger,
     })
 } 

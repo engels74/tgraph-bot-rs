@@ -77,4 +77,12 @@ impl DmThrottleManager {
             debug!("Cleaned up {} old DM throttle entries", cleaned_count);
         }
     }
+
+    /// Clear throttle data for a specific user (for GDPR compliance)
+    pub async fn clear_user_throttle(&self, user_id: u64) {
+        let mut last_dm_times = self.last_dm_times.write().await;
+        if last_dm_times.remove(&user_id).is_some() {
+            debug!("Cleared DM throttle data for user {} (GDPR compliance)", user_id);
+        }
+    }
 } 

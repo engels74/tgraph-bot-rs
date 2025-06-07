@@ -24,6 +24,12 @@ impl CommandRegistry {
         self.commands.push(crate::user::about());
         self.commands.push(crate::user::uptime());
         self.commands.push(crate::user::my_stats());
+        
+        // Register GDPR compliance commands
+        self.commands.push(crate::user::export_my_data());
+        self.commands.push(crate::user::delete_my_data());
+        
+        // Register admin commands
         self.commands.push(crate::admin::update_graphs());
         self.commands.push(crate::admin::metrics());
 
