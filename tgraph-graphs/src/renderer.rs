@@ -203,8 +203,8 @@ impl GraphRenderer for LineChartRenderer {
 
     async fn render_to_bytes(
         &self,
-        config: &GraphConfig,
-        datasets: &[DataSet],
+        _config: &GraphConfig,
+        _datasets: &[DataSet],
     ) -> Result<Vec<u8>> {
         // For now, use a simple in-memory buffer approach
         // In a real implementation, we'd use a proper bytes backend

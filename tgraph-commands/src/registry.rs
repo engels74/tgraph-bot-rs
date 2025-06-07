@@ -34,6 +34,11 @@ impl CommandRegistry {
         &self.commands
     }
 
+    /// Take ownership of all commands (for framework initialization)
+    pub fn take_commands(self) -> Vec<Command<CommandContext, CommandError>> {
+        self.commands
+    }
+
     /// Get the number of registered commands
     pub fn len(&self) -> usize {
         self.commands.len()

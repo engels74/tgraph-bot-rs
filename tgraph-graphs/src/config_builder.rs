@@ -2,10 +2,10 @@
 
 use crate::{
     ColorScheme, CompleteGraphConfig, ConfigMetadata, ConfigurationManager, 
-    DailyPlayCountConfig, DayOfWeekConfig, DisplayConfig, FilterConfig, 
-    FontConfig, GraphConfig, GraphSpecificConfig, GridConfig, GridStyle,
+    DailyPlayCountConfig, DayOfWeekConfig, 
+    FontConfig, GridConfig, GridStyle,
     HourlyDistributionConfig, MarginConfig, MonthlyTrendsConfig, 
-    SortOrder, StyleConfig, TopItemsConfig, DateRange
+    SortOrder, TopItemsConfig, DateRange
 };
 use chrono::{NaiveDate, Utc};
 use tgraph_common::Result;

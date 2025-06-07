@@ -215,7 +215,7 @@ impl GraphPipeline {
 
     /// Execute a graph generation task
     async fn execute_generation_task<R>(
-        mut task: GraphGenerationTask,
+        task: GraphGenerationTask,
         renderer: Arc<R>,
         temp_manager: Arc<Mutex<TempFileManager>>,
     ) -> Result<PathBuf>

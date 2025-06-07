@@ -3,13 +3,11 @@
 use anyhow::Result;
 use clap::Parser;
 use poise::serenity_prelude::{self as serenity, GatewayIntents};
-use std::sync::Arc;
 use tracing::{info, error};
 use tracing_subscriber::{self, EnvFilter};
 
-use tgraph_config::{ConfigLoader, Config};
+use tgraph_config::ConfigLoader;
 use tgraph_commands::{CommandRegistry, CommandContext, create_command_context};
-use tgraph_i18n::{I18nManager, Locale};
 
 // Use the command context from tgraph_commands
 type Data = CommandContext;
@@ -79,7 +77,7 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             error!("Error in event handler for {:?}: {:?}", event.snake_case_name(), error);
         }
         error => {
-            error!("Other error: {:?}", error);
+            error!("Other error: {}", error);
         }
     }
 }
@@ -116,7 +114,7 @@ async fn main() -> Result<()> {
     // Create and register commands
     let mut registry = CommandRegistry::new();
     registry.register_all()?;
-    let commands = registry.commands().to_vec();
+    let commands = registry.take_commands();
 
     // Set up Poise framework
     let framework = poise::Framework::builder()

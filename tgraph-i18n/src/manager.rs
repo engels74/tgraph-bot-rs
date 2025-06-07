@@ -4,6 +4,7 @@ use crate::Locale;
 use tgraph_common::Result;
 
 /// Manages internationalization for the application
+#[derive(Debug)]
 pub struct I18nManager {
     default_locale: Locale,
 }

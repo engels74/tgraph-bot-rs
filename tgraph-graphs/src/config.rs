@@ -343,7 +343,7 @@ impl GraphSpecificConfig for DailyPlayCountConfig {
         Ok(())
     }
     
-    fn apply_to_graph_config(&self, config: &mut GraphConfig) {
+    fn apply_to_graph_config(&self, _config: &mut GraphConfig) {
         // Apply weekend highlighting if enabled
         if self.highlight_weekends && self.weekend_color.is_some() {
             // This would require extending GraphConfig to support weekend highlighting

@@ -307,13 +307,13 @@ impl CachedAggregationManager {
     }
 
     /// Aggregate with custom parameters and caching
-    #[instrument(skip(self, entries, progress_tx, params, aggregation_fn))]
+    #[instrument(skip(self, _entries, _progress_tx, params, aggregation_fn))]
     pub async fn aggregate_with_params<T, F>(
         &self,
         cache_key: CacheKey,
-        entries: Vec<HistoryEntry>,
+        _entries: Vec<HistoryEntry>,
         params: T,
-        progress_tx: Option<mpsc::UnboundedSender<AggregationProgress>>,
+        _progress_tx: Option<mpsc::UnboundedSender<AggregationProgress>>,
         aggregation_fn: F,
     ) -> Result<CachedData>
     where

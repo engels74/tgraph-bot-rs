@@ -9,6 +9,7 @@ use tracing::info;
 use tokio::time::interval;
 
 /// Shared application state accessible across commands and event handlers
+#[derive(Debug)]
 pub struct CommandContext {
     /// Application configuration
     pub config: Arc<Config>,
