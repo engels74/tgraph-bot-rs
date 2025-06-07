@@ -47,8 +47,12 @@ tracing-subscriber = { workspace = true }
 # Utilities
 chrono = { workspace = true }
 
+# Database
+sled = "0.34"
+
 [dev-dependencies]
 tokio-test = { workspace = true }
+tempfile = "3.8"
 
 [features]
 default = ["full"]
