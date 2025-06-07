@@ -1,8 +1,10 @@
 //! Discord API client with authentication and connection management
 
 use anyhow::{Result, bail};
-use poise::serenity_prelude::{self as serenity, GatewayIntents, ShardManager, ChannelId, GuildId};
+use poise::serenity_prelude::{self as serenity, GatewayIntents, ShardManager, ChannelId, GuildId, CreateAttachment};
 use std::sync::Arc;
+use std::path::Path;
+use std::fs;
 use tracing::{info, warn, error, debug};
 use tokio::sync::RwLock;
 use tgraph_config::settings::DiscordConfig;
@@ -72,6 +74,222 @@ impl ChannelPermissions {
             
             format!("⚠️ Missing permissions: {}", missing.join(", "))
         }
+    }
+}
+
+/// File attachment configuration for Discord messages
+#[derive(Debug, Clone)]
+pub struct GraphAttachment {
+    /// File name to display in Discord
+    pub filename: String,
+    /// PNG image data
+    pub data: Vec<u8>,
+    /// Optional description for the attachment
+    pub description: Option<String>,
+}
+
+impl GraphAttachment {
+    /// Create a new GraphAttachment from a file path
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        
+        // Validate file exists
+        if !path.exists() {
+            bail!("File does not exist: {}", path.display());
+        }
+
+        // Validate file extension
+        if !Self::is_png_file(path) {
+            bail!("File must have .png extension: {}", path.display());
+        }
+
+        // Read file data
+        let data = fs::read(path)
+            .map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", path.display(), e))?;
+
+        // Validate file size (Discord limit is 25MB for bots)
+        Self::validate_file_size(&data)?;
+
+        // Validate PNG magic bytes
+        Self::validate_png_format(&data)?;
+
+        let filename = path
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Invalid file name: {}", path.display()))?
+            .to_string_lossy()
+            .to_string();
+
+        Ok(Self {
+            filename,
+            data,
+            description: None,
+        })
+    }
+
+    /// Create a new GraphAttachment from raw PNG data
+    pub fn from_data(filename: String, data: Vec<u8>) -> Result<Self> {
+        // Validate file size
+        Self::validate_file_size(&data)?;
+
+        // Validate PNG format
+        Self::validate_png_format(&data)?;
+
+        // Ensure filename has .png extension
+        let filename = if filename.to_lowercase().ends_with(".png") {
+            filename
+        } else {
+            format!("{}.png", filename)
+        };
+
+        Ok(Self {
+            filename,
+            data,
+            description: None,
+        })
+    }
+
+    /// Set a description for the attachment
+    pub fn with_description<S: Into<String>>(mut self, description: S) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Convert to Discord CreateAttachment
+    pub fn to_discord_attachment(&self) -> CreateAttachment {
+        let mut attachment = CreateAttachment::bytes(self.data.clone(), &self.filename);
+        
+        if let Some(description) = &self.description {
+            attachment = attachment.description(description);
+        }
+
+        attachment
+    }
+
+    /// Get file size in bytes
+    pub fn size(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Get human-readable file size
+    pub fn size_human(&self) -> String {
+        let size = self.data.len() as f64;
+        
+        if size < 1024.0 {
+            format!("{} B", size)
+        } else if size < 1024.0 * 1024.0 {
+            format!("{:.1} KB", size / 1024.0)
+        } else {
+            format!("{:.1} MB", size / (1024.0 * 1024.0))
+        }
+    }
+
+    /// Check if file has PNG extension
+    fn is_png_file(path: &Path) -> bool {
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_lowercase() == "png")
+            .unwrap_or(false)
+    }
+
+    /// Validate file size against Discord limits
+    fn validate_file_size(data: &[u8]) -> Result<()> {
+        const MAX_FILE_SIZE: usize = 25 * 1024 * 1024; // 25MB for bots
+        
+        if data.len() > MAX_FILE_SIZE {
+            bail!(
+                "File size ({:.1} MB) exceeds Discord's limit of 25 MB", 
+                data.len() as f64 / (1024.0 * 1024.0)
+            );
+        }
+        
+        if data.is_empty() {
+            bail!("File is empty");
+        }
+        
+        Ok(())
+    }
+
+    /// Validate PNG file format by checking magic bytes
+    fn validate_png_format(data: &[u8]) -> Result<()> {
+        const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        
+        if data.len() < PNG_MAGIC.len() {
+            bail!("File too small to be a valid PNG");
+        }
+        
+        if !data.starts_with(PNG_MAGIC) {
+            bail!("File does not contain valid PNG magic bytes");
+        }
+        
+        Ok(())
+    }
+}
+
+/// File attachment manager for Discord operations
+pub struct AttachmentManager {
+    /// Maximum allowed file size in bytes
+    max_file_size: usize,
+}
+
+impl AttachmentManager {
+    /// Create a new AttachmentManager with default settings
+    pub fn new() -> Self {
+        Self {
+            max_file_size: 25 * 1024 * 1024, // 25MB default for Discord bots
+        }
+    }
+
+    /// Create an AttachmentManager with custom size limit
+    pub fn with_max_size(max_size: usize) -> Self {
+        Self {
+            max_file_size: max_size,
+        }
+    }
+
+    /// Prepare a graph file for Discord attachment
+    pub fn prepare_graph_attachment<P: AsRef<Path>>(&self, path: P) -> Result<GraphAttachment> {
+        GraphAttachment::from_file(path)
+    }
+
+    /// Prepare multiple graph files for Discord attachment
+    pub fn prepare_multiple_attachments<P: AsRef<Path>>(&self, paths: &[P]) -> Result<Vec<GraphAttachment>> {
+        let mut attachments = Vec::new();
+        
+        for path in paths {
+            let attachment = self.prepare_graph_attachment(path)?;
+            attachments.push(attachment);
+        }
+        
+        // Validate total size
+        let total_size: usize = attachments.iter().map(|a| a.size()).sum();
+        if total_size > self.max_file_size {
+            bail!(
+                "Total attachment size ({:.1} MB) exceeds limit ({:.1} MB)",
+                total_size as f64 / (1024.0 * 1024.0),
+                self.max_file_size as f64 / (1024.0 * 1024.0)
+            );
+        }
+        
+        Ok(attachments)
+    }
+
+    /// Create attachment from raw PNG data with validation
+    pub fn create_from_data(&self, filename: String, data: Vec<u8>) -> Result<GraphAttachment> {
+        if data.len() > self.max_file_size {
+            bail!(
+                "Data size ({:.1} MB) exceeds limit ({:.1} MB)",
+                data.len() as f64 / (1024.0 * 1024.0),
+                self.max_file_size as f64 / (1024.0 * 1024.0)
+            );
+        }
+        
+        GraphAttachment::from_data(filename, data)
+    }
+}
+
+impl Default for AttachmentManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -318,6 +536,51 @@ impl DiscordClient {
         }
 
         Ok(permissions.can_post_graphs())
+    }
+
+    /// Create an attachment manager for this client
+    pub fn attachment_manager(&self) -> AttachmentManager {
+        AttachmentManager::new()
+    }
+
+    /// Create an attachment manager with custom size limit
+    pub fn attachment_manager_with_limit(&self, max_size: usize) -> AttachmentManager {
+        AttachmentManager::with_max_size(max_size)
+    }
+
+    /// Prepare a graph file for Discord attachment with validation
+    pub fn prepare_graph_file<P: AsRef<Path>>(&self, path: P) -> Result<GraphAttachment> {
+        let attachment_manager = self.attachment_manager();
+        attachment_manager.prepare_graph_attachment(path)
+    }
+
+    /// Prepare multiple graph files for Discord attachment
+    pub fn prepare_multiple_graphs<P: AsRef<Path>>(&self, paths: &[P]) -> Result<Vec<GraphAttachment>> {
+        let attachment_manager = self.attachment_manager();
+        attachment_manager.prepare_multiple_attachments(paths)
+    }
+
+    /// Create a graph attachment from raw PNG data
+    pub fn create_graph_from_data(&self, filename: String, data: Vec<u8>) -> Result<GraphAttachment> {
+        let attachment_manager = self.attachment_manager();
+        attachment_manager.create_from_data(filename, data)
+    }
+
+    /// Validate and prepare an attachment for posting
+    /// This combines permission checking with file preparation
+    pub async fn validate_and_prepare_attachment<P: AsRef<Path>>(
+        &self,
+        http: &serenity::Http,
+        channel_id: ChannelId,
+        path: P,
+    ) -> Result<GraphAttachment> {
+        // First check if we can post to the channel
+        if !self.can_post_to_channel(http, channel_id).await? {
+            bail!("Bot does not have permission to post attachments to channel {}", channel_id);
+        }
+
+        // Then prepare the attachment
+        self.prepare_graph_file(path)
     }
 
     /// Get the current connection status
@@ -588,5 +851,157 @@ mod tests {
         
         assert!(!permissions.can_post_graphs());
         assert!(permissions.status_message().contains("Error checking permissions"));
+    }
+
+    #[test]
+    fn test_graph_attachment_from_data_valid_png() {
+        // Valid PNG magic bytes
+        let png_data = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG magic bytes
+            0x00, 0x00, 0x00, 0x0D, // Additional minimal PNG data
+            0x49, 0x48, 0x44, 0x52, // IHDR chunk
+        ];
+
+        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data.clone());
+        assert!(attachment.is_ok());
+
+        let attachment = attachment.unwrap();
+        assert_eq!(attachment.filename, "test.png");
+        assert_eq!(attachment.data, png_data);
+        assert_eq!(attachment.description, None);
+    }
+
+    #[test]
+    fn test_graph_attachment_from_data_auto_add_extension() {
+        let png_data = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52,
+        ];
+
+        let attachment = GraphAttachment::from_data("test".to_string(), png_data);
+        assert!(attachment.is_ok());
+
+        let attachment = attachment.unwrap();
+        assert_eq!(attachment.filename, "test.png");
+    }
+
+    #[test]
+    fn test_graph_attachment_from_data_invalid_magic_bytes() {
+        let invalid_data = vec![0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]; // Invalid PNG magic bytes
+
+        let attachment = GraphAttachment::from_data("test.png".to_string(), invalid_data);
+        assert!(attachment.is_err());
+        assert!(attachment.unwrap_err().to_string().contains("PNG magic bytes"));
+    }
+
+    #[test]
+    fn test_graph_attachment_from_data_empty_file() {
+        let empty_data = vec![];
+
+        let attachment = GraphAttachment::from_data("test.png".to_string(), empty_data);
+        assert!(attachment.is_err());
+        assert!(attachment.unwrap_err().to_string().contains("empty"));
+    }
+
+    #[test]
+    fn test_graph_attachment_with_description() {
+        let png_data = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52,
+        ];
+
+        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data)
+            .unwrap()
+            .with_description("Test graph");
+
+        assert_eq!(attachment.description, Some("Test graph".to_string()));
+    }
+
+    #[test]
+    fn test_graph_attachment_size_human() {
+        let png_data = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52,
+        ];
+
+        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data.clone()).unwrap();
+        
+        // Should be in bytes since it's small
+        assert_eq!(attachment.size_human(), format!("{} B", png_data.len()));
+        assert_eq!(attachment.size(), png_data.len());
+    }
+
+    #[test]
+    fn test_graph_attachment_size_kb() {
+        let mut png_data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]; // PNG magic bytes
+        png_data.resize(2048, 0); // Make it 2KB
+
+        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data).unwrap();
+        assert_eq!(attachment.size_human(), "2.0 KB");
+    }
+
+    #[test] 
+    fn test_attachment_manager_new() {
+        let manager = AttachmentManager::new();
+        assert_eq!(manager.max_file_size, 25 * 1024 * 1024); // 25MB
+    }
+
+    #[test]
+    fn test_attachment_manager_with_max_size() {
+        let manager = AttachmentManager::with_max_size(1024 * 1024); // 1MB
+        assert_eq!(manager.max_file_size, 1024 * 1024);
+    }
+
+    #[test]
+    fn test_attachment_manager_create_from_data_exceeds_limit() {
+        let manager = AttachmentManager::with_max_size(10); // Very small limit
+        let mut png_data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]; // PNG magic bytes
+        png_data.extend(vec![0x00; 20]); // Add more bytes to exceed the limit
+
+        let result = manager.create_from_data("test.png".to_string(), png_data);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("exceeds limit"));
+    }
+
+    #[test] 
+    fn test_attachment_manager_default() {
+        let manager: AttachmentManager = Default::default();
+        assert_eq!(manager.max_file_size, 25 * 1024 * 1024); // 25MB
+    }
+
+    #[test]
+    fn test_discord_client_attachment_manager() {
+        let config = create_test_config("test_token_1234567890123456789012345678901234567890");
+        let client = DiscordClient::new(config);
+        
+        let manager = client.attachment_manager();
+        assert_eq!(manager.max_file_size, 25 * 1024 * 1024);
+        
+        let manager_custom = client.attachment_manager_with_limit(1024 * 1024);
+        assert_eq!(manager_custom.max_file_size, 1024 * 1024);
+    }
+
+    #[test]
+    fn test_graph_attachment_to_discord_attachment() {
+        let png_data = vec![
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52,
+        ];
+
+        let attachment = GraphAttachment::from_data("test.png".to_string(), png_data.clone())
+            .unwrap()
+            .with_description("Test graph attachment");
+
+        let _discord_attachment = attachment.to_discord_attachment();
+        
+        // We can't easily test the internal structure of CreateAttachment,
+        // but we can verify the conversion doesn't panic and returns something
+        // The actual functionality would be tested in integration tests
+        // For now, just ensure it compiles and runs
+        assert_eq!(attachment.filename, "test.png");
     }
 } 
