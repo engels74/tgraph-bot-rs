@@ -177,7 +177,7 @@ impl GraphRenderer for LineChartRenderer {
         // Draw datasets
         for (i, dataset) in datasets.iter().enumerate() {
             let color_idx = i % colors.len();
-            let color = &colors[color_idx];
+            let color = colors[color_idx];
             
             // Convert data points to plotter format
             let line_data: Vec<(f64, f64)> = dataset.data.iter()
@@ -185,9 +185,9 @@ impl GraphRenderer for LineChartRenderer {
                 .collect();
 
             // Draw the line series
-            chart.draw_series(LineSeries::new(line_data, color))?
+            chart.draw_series(LineSeries::new(line_data, &color))?
                 .label(&dataset.name)
-                .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], color));
+                .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 10, y)], &color));
         }
 
         // Draw legend if there are multiple datasets

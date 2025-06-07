@@ -1,13 +1,21 @@
 //! Graph generation and visualization for TGraph Telegram bot
 
 pub mod daily_play_count;
+pub mod day_of_week;
 pub mod generator;
+pub mod hourly_distribution;
+pub mod monthly_trends;
 pub mod pipeline;
 pub mod renderer;
+pub mod top_platforms;
 pub mod types;
 
 pub use daily_play_count::*;
+pub use day_of_week::*;
 pub use generator::GraphGenerator;
+pub use hourly_distribution::*;
+pub use monthly_trends::*;
 pub use pipeline::*;
 pub use renderer::*;
+pub use top_platforms::*;
 pub use types::*; 
