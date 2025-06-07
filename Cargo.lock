@@ -3057,6 +3057,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "dashmap",
+ "lazy_static",
  "poise",
  "reqwest",
  "serde",

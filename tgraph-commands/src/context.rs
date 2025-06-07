@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tgraph_config::Config;
 use tgraph_i18n::I18nManager;
-use crate::{Permissions, CooldownManager, MetricsManager, UserDatabase, UserStatisticsManager};
+use crate::{Permissions, CooldownManager, MetricsManager, UserDatabase, UserStatisticsManager, DmThrottleManager};
 use tracing::info;
 use tokio::time::interval;
 
@@ -27,6 +27,8 @@ pub struct CommandContext {
     pub user_db: Arc<UserDatabase>,
     /// User statistics manager with caching and privacy controls
     pub user_stats: Arc<UserStatisticsManager>,
+    /// DM throttle manager to prevent DM abuse
+    pub dm_throttle: Arc<DmThrottleManager>,
 }
 
 /// Error type for commands
@@ -104,6 +106,18 @@ pub fn start_metrics_cleanup_task(metrics: Arc<MetricsManager>) -> tokio::task::
     })
 }
 
+/// Start background task for DM throttle cleanup
+pub fn start_dm_throttle_cleanup_task(dm_throttle: Arc<DmThrottleManager>) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = interval(Duration::from_secs(600)); // Run every 10 minutes
+        
+        loop {
+            interval.tick().await;
+            dm_throttle.cleanup_old_entries().await;
+        }
+    })
+}
+
 /// Create a new command context with all required components
 pub async fn create_command_context(config: Config) -> Result<CommandContext, CommandError> {
     // Initialize HTTP client
@@ -131,9 +145,13 @@ pub async fn create_command_context(config: Config) -> Result<CommandContext, Co
     // Initialize user statistics manager
     let user_stats = Arc::new(UserStatisticsManager::new(user_db.clone()));
 
-    // Start background cleanup task
+    // Initialize DM throttle manager (5 minute throttle between DMs per user)
+    let dm_throttle = Arc::new(DmThrottleManager::new(Duration::from_secs(300)));
+
+    // Start background cleanup tasks
     let metrics_arc = Arc::new(metrics);
     let _cleanup_handle = start_metrics_cleanup_task(metrics_arc.clone());
+    let _dm_throttle_cleanup_handle = start_dm_throttle_cleanup_task(dm_throttle.clone());
 
     Ok(CommandContext {
         config: Arc::new(config),
@@ -144,5 +162,6 @@ pub async fn create_command_context(config: Config) -> Result<CommandContext, Co
         metrics: metrics_arc,
         user_db,
         user_stats,
+        dm_throttle,
     })
 } 

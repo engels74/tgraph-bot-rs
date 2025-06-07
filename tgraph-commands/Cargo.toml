@@ -36,6 +36,7 @@ tracing = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 dashmap = { workspace = true }
+lazy_static = "1.4"
 
 # HTTP client for external APIs
 reqwest = { workspace = true }
