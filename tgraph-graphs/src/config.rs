@@ -1,7 +1,7 @@
 //! Graph configuration and customization system
 
 use crate::{ColorScheme, GraphConfig, StyleConfig};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -22,11 +22,172 @@ pub trait GraphSpecificConfig: Clone + Serialize + for<'de> Deserialize<'de> {
     fn display_name(&self) -> &'static str;
 }
 
+/// Time range presets for easy selection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TimeRangePreset {
+    LastWeek,
+    LastMonth,
+    LastQuarter,
+    LastYear,
+    LastSevenDays,
+    LastThirtyDays,
+    LastNinetyDays,
+    ThisMonth,
+    ThisYear,
+    AllTime,
+    Custom(DateRange),
+}
+
+impl TimeRangePreset {
+    pub fn to_date_range(&self) -> DateRange {
+        let now = chrono::Utc::now().date_naive();
+        
+        match self {
+            TimeRangePreset::LastWeek => DateRange::last_days(7),
+            TimeRangePreset::LastMonth => DateRange::last_days(30),
+            TimeRangePreset::LastQuarter => DateRange::last_days(90),
+            TimeRangePreset::LastYear => DateRange::last_days(365),
+            TimeRangePreset::LastSevenDays => DateRange::last_days(7),
+            TimeRangePreset::LastThirtyDays => DateRange::last_days(30),
+            TimeRangePreset::LastNinetyDays => DateRange::last_days(90),
+            TimeRangePreset::ThisMonth => {
+                let start = now.with_day(1).unwrap();
+                DateRange::new(start, now)
+            },
+            TimeRangePreset::ThisYear => {
+                let start = now.with_month(1).unwrap().with_day(1).unwrap();
+                DateRange::new(start, now)
+            },
+            TimeRangePreset::AllTime => {
+                // Default to last 2 years for "all time"
+                DateRange::last_days(730)
+            },
+            TimeRangePreset::Custom(range) => range.clone(),
+        }
+    }
+    
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            TimeRangePreset::LastWeek => "Last Week",
+            TimeRangePreset::LastMonth => "Last Month",
+            TimeRangePreset::LastQuarter => "Last Quarter",
+            TimeRangePreset::LastYear => "Last Year",
+            TimeRangePreset::LastSevenDays => "Last 7 Days",
+            TimeRangePreset::LastThirtyDays => "Last 30 Days",
+            TimeRangePreset::LastNinetyDays => "Last 90 Days",
+            TimeRangePreset::ThisMonth => "This Month",
+            TimeRangePreset::ThisYear => "This Year",
+            TimeRangePreset::AllTime => "All Time",
+            TimeRangePreset::Custom(_) => "Custom Range",
+        }
+    }
+}
+
+/// Configuration for graph comparison features
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComparisonConfig {
+    /// Enable comparison mode
+    pub enabled: bool,
+    /// Primary time range for comparison
+    pub primary_range: DateRange,
+    /// Secondary time range(s) for comparison
+    pub comparison_ranges: Vec<ComparisonPeriod>,
+    /// Comparison display mode
+    pub display_mode: ComparisonDisplayMode,
+    /// Show difference indicators
+    pub show_differences: bool,
+    /// Show growth percentages
+    pub show_growth_percentages: bool,
+    /// Colors for different comparison periods
+    pub comparison_colors: Vec<String>,
+}
+
+/// Individual comparison period configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComparisonPeriod {
+    /// Name/label for this comparison period
+    pub label: String,
+    /// Date range for this comparison
+    pub date_range: DateRange,
+    /// Color for this comparison (optional, uses default palette if None)
+    pub color: Option<String>,
+    /// Whether this comparison is enabled
+    pub enabled: bool,
+}
+
+/// How to display comparison data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ComparisonDisplayMode {
+    /// Overlay all periods on the same graph
+    Overlay,
+    /// Side-by-side subplots
+    SideBySide,
+    /// Stacked display
+    Stacked,
+    /// Show as difference/delta from primary
+    Difference,
+}
+
+/// Configuration for trend analysis
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrendConfig {
+    /// Enable trend analysis
+    pub enabled: bool,
+    /// Show moving averages
+    pub show_moving_average: bool,
+    /// Moving average window size (in days)
+    pub moving_average_window: u32,
+    /// Show linear trend line
+    pub show_trend_line: bool,
+    /// Show growth rate indicators
+    pub show_growth_rate: bool,
+    /// Show statistical indicators (min, max, mean, median)
+    pub show_statistics: bool,
+    /// Confidence interval for trend predictions
+    pub confidence_interval: f64,
+}
+
+impl Default for ComparisonConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            primary_range: DateRange::last_days(30),
+            comparison_ranges: vec![],
+            display_mode: ComparisonDisplayMode::Overlay,
+            show_differences: true,
+            show_growth_percentages: true,
+            comparison_colors: vec![
+                "#FF6B6B".to_string(),
+                "#4ECDC4".to_string(),
+                "#45B7D1".to_string(),
+                "#FFA07A".to_string(),
+                "#98D8C8".to_string(),
+            ],
+        }
+    }
+}
+
+impl Default for TrendConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            show_moving_average: false,
+            moving_average_window: 7,
+            show_trend_line: false,
+            show_growth_rate: false,
+            show_statistics: false,
+            confidence_interval: 0.95,
+        }
+    }
+}
+
 /// Data filtering options for graph generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FilterConfig {
     /// Date range filter
     pub date_range: Option<DateRange>,
+    /// Time range preset for easy selection
+    pub time_range_preset: Option<TimeRangePreset>,
     /// Platform filter (include only these platforms)
     pub platforms: Option<Vec<String>>,
     /// User filter (include only these users)
@@ -37,17 +198,24 @@ pub struct FilterConfig {
     pub minimum_threshold: Option<f64>,
     /// Custom data filters
     pub custom_filters: HashMap<String, String>,
+    /// Comparison configuration
+    pub comparison: Option<ComparisonConfig>,
+    /// Trend analysis configuration
+    pub trend_analysis: Option<TrendConfig>,
 }
 
 impl Default for FilterConfig {
     fn default() -> Self {
         Self {
             date_range: None,
+            time_range_preset: None,
             platforms: None,
             users: None,
             data_point_limit: Some(100), // Default limit
             minimum_threshold: None,
             custom_filters: HashMap::new(),
+            comparison: None,
+            trend_analysis: None,
         }
     }
 }
