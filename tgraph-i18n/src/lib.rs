@@ -25,15 +25,19 @@
 //! ```
 
 pub mod bundle;
+pub mod context;
 pub mod error;
 pub mod locale;
 pub mod manager;
+pub mod pluralization;
 pub mod resource;
 
 pub use bundle::{fluent_args, BundleManager};
+pub use context::{Gender, TranslationContext};
 pub use error::{I18nError, I18nResult};
 pub use locale::Locale;
 pub use manager::I18nManager;
+pub use pluralization::PluralizationHelper;
 pub use resource::ResourceManager;
 
 // Re-export commonly used Fluent types

@@ -190,3 +190,25 @@ macro_rules! fluent_args {
         Some(args)
     }};
 }
+
+/// Enhanced macro to create FluentArgs with context support
+#[macro_export]
+macro_rules! fluent_args_with_context {
+    (context: $context:expr) => {
+        Some($context.to_fluent_args())
+    };
+    (context: $context:expr, $($key:expr => $value:expr),+ $(,)?) => {{
+        let mut args = $context.to_fluent_args();
+        $(
+            args.set($key, $value);
+        )+
+        Some(args)
+    }};
+    ($($key:expr => $value:expr),+ $(,)?) => {{
+        let mut args = fluent::FluentArgs::new();
+        $(
+            args.set($key, $value);
+        )+
+        Some(args)
+    }};
+}

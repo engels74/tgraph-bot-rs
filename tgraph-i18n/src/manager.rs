@@ -1,6 +1,7 @@
 //! Internationalization manager
 
 use crate::bundle::BundleManager;
+use crate::context::TranslationContext;
 use crate::error::{I18nError, I18nResult};
 use crate::resource::ResourceManager;
 use crate::Locale;
@@ -124,5 +125,87 @@ impl I18nManager {
             }
         }
         Ok(())
+    }
+
+    /// Get a localized message with context-aware translation
+    pub fn get_message_with_context(
+        &self,
+        key: &str,
+        locale: &Locale,
+        context: &TranslationContext,
+    ) -> I18nResult<String> {
+        // Try gender-specific message first if applicable
+        if let Some(gender_suffix) = context.get_gender_suffix(locale) {
+            let gender_key = format!("{}-{}", key, gender_suffix);
+            if self.has_message(&gender_key, locale) {
+                let args = context.to_fluent_args();
+                return self.get_message(&gender_key, locale, Some(&args));
+            }
+        }
+
+        // Fall back to regular message with context
+        let args = context.to_fluent_args();
+        self.get_message(key, locale, Some(&args))
+    }
+
+    /// Get a localized message with context and fallback
+    pub fn get_message_with_context_or_default(
+        &self,
+        key: &str,
+        locale: &Locale,
+        context: &TranslationContext,
+        default: &str,
+    ) -> String {
+        self.get_message_with_context(key, locale, context)
+            .unwrap_or_else(|_| {
+                warn!("Message '{}' not found with context, using default: '{}'", key, default);
+                default.to_string()
+            })
+    }
+
+    /// Format a time duration message with proper pluralization
+    pub fn format_time_duration(
+        &self,
+        key: &str,
+        locale: &Locale,
+        seconds: i64,
+    ) -> I18nResult<String> {
+        let context = TranslationContext::for_time_duration(seconds);
+        self.get_message_with_context(key, locale, &context)
+    }
+
+    /// Format user statistics with context
+    pub fn format_user_stats(
+        &self,
+        key: &str,
+        locale: &Locale,
+        count: i64,
+        total: i64,
+    ) -> I18nResult<String> {
+        let context = TranslationContext::for_user_stats(count, total);
+        self.get_message_with_context(key, locale, &context)
+    }
+
+    /// Format command statistics with context
+    pub fn format_command_stats(
+        &self,
+        key: &str,
+        locale: &Locale,
+        successful: i64,
+        failed: i64,
+    ) -> I18nResult<String> {
+        let context = TranslationContext::for_command_stats(successful, failed);
+        self.get_message_with_context(key, locale, &context)
+    }
+
+    /// Format a pluralized message
+    pub fn format_plural(
+        &self,
+        key: &str,
+        locale: &Locale,
+        count: i64,
+    ) -> I18nResult<String> {
+        let context = TranslationContext::with_count(count);
+        self.get_message_with_context(key, locale, &context)
     }
 }
