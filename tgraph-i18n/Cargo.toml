@@ -33,3 +33,6 @@ tracing = { workspace = true }
 [dev-dependencies]
 tokio-test = { workspace = true }
 tempfile = "3.0"
+
+[build-dependencies]
+fluent-syntax = { workspace = true }
