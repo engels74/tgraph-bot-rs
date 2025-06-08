@@ -403,7 +403,7 @@ mod tests {
         let temp_dir = tempdir().expect("Failed to create temp directory");
         let db_path = temp_dir.path().join("test_db");
         
-        let db = UserDatabase::new(&db_path).expect("Failed to initialize database");
+        let _db = UserDatabase::new(&db_path).expect("Failed to initialize database");
         assert!(db_path.exists());
     }
 

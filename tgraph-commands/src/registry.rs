@@ -32,6 +32,7 @@ impl CommandRegistry {
         // Register admin commands
         self.commands.push(crate::admin::update_graphs());
         self.commands.push(crate::admin::metrics());
+        self.commands.push(crate::admin::scheduler_status());
 
         Ok(())
     }

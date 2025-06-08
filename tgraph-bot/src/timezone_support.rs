@@ -8,7 +8,7 @@ use chrono::{DateTime, Offset, TimeZone, Utc};
 use chrono_tz::{OffsetComponents, Tz, TZ_VARIANTS};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::str::FromStr;
+
 use tracing::{debug, info, warn};
 
 /// Timezone configuration for a schedule

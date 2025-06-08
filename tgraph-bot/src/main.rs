@@ -6,8 +6,11 @@ use poise::serenity_prelude::{self as serenity, GatewayIntents};
 use tracing::{info, error};
 use tracing_subscriber::{self, EnvFilter};
 
+use std::sync::Arc;
 use tgraph_config::ConfigLoader;
 use tgraph_commands::{CommandRegistry, CommandContext, create_command_context};
+
+use scheduling_integration::SchedulingSystem;
 
 mod discord;
 mod scheduler;
@@ -20,6 +23,7 @@ mod persistence;
 mod admin_api;
 mod timezone_support;
 mod monitoring_system;
+mod scheduling_integration;
 
 // Use the command context from tgraph_commands
 type Data = CommandContext;
@@ -113,6 +117,12 @@ async fn main() -> Result<()> {
 
     info!("Configuration loaded successfully");
 
+    // Initialize scheduling system
+    info!("Initializing scheduling system...");
+    let scheduling_system = Arc::new(SchedulingSystem::new().await?);
+    scheduling_system.start().await?;
+    info!("Scheduling system started successfully");
+
     // Validate Discord token
     if config.discord.token.is_empty() {
         anyhow::bail!("Discord token is required but not provided in configuration");
@@ -159,19 +169,25 @@ async fn main() -> Result<()> {
 
     // Set up graceful shutdown handling
     let shard_manager = client.shard_manager.clone();
-    
+    let scheduling_system_clone = scheduling_system.clone();
+
     tokio::spawn(async move {
         if let Err(e) = tokio::signal::ctrl_c().await {
             error!("Failed to listen for shutdown signal: {:?}", e);
             return;
         }
-        
+
         info!("Received shutdown signal, starting graceful shutdown");
-        
+
+        // Shutdown scheduling system first
+        if let Err(e) = scheduling_system_clone.shutdown().await {
+            error!("Error shutting down scheduling system: {}", e);
+        }
+
         // Shutdown Discord client
         shard_manager.shutdown_all().await;
-        
-        info!("Discord client shutdown complete");
+
+        info!("Graceful shutdown complete");
     });
 
     info!("TGraph Discord bot is starting up...");

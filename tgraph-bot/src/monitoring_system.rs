@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::admin_api::{AdminApiState, start_admin_api_server};
 use crate::alerting::{AlertManager, AlertRule, AlertCondition, AlertSeverity};
@@ -388,9 +388,7 @@ pub struct MonitoringHealthStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::task_manager::TaskPriority;
     use std::time::Duration;
-    use tempfile::tempdir;
     use tokio::time::sleep;
 
     async fn create_test_monitoring_system() -> Result<MonitoringSystem> {

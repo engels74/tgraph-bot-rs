@@ -2070,7 +2070,7 @@ mod tests {
             .unwrap()
             .with_description("Test graph attachment");
 
-        let discord_attachment = attachment.to_discord_attachment();
+        let _discord_attachment = attachment.to_discord_attachment();
         
         // We can't directly test the CreateAttachment structure since it's opaque,
         // but we can verify our attachment was created successfully
