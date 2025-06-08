@@ -12,6 +12,7 @@ use tgraph_commands::{CommandRegistry, CommandContext, create_command_context};
 mod discord;
 mod scheduler;
 mod task_manager;
+mod schedule_config;
 
 // Use the command context from tgraph_commands
 type Data = CommandContext;

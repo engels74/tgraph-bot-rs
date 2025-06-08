@@ -51,6 +51,10 @@ uuid = { workspace = true }
 # Scheduling
 tokio-cron-scheduler = "0.10"
 
+# Configuration parsing
+serde_yaml = "0.9"
+chrono-tz = "0.8"
+
 # Database
 sled = "0.34"
 
