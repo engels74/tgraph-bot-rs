@@ -128,7 +128,7 @@ pub async fn create_command_context(config: Config) -> Result<CommandContext, Co
         .build()?;
 
     // Initialize i18n
-    let i18n = I18nManager::new(tgraph_i18n::Locale::default());
+    let i18n = I18nManager::new(tgraph_i18n::Locale::default(), "locales")?;
 
     // Initialize permissions from config
     let permissions = Permissions::new(&config);
