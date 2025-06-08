@@ -46,6 +46,10 @@ tracing-subscriber = { workspace = true }
 
 # Utilities
 chrono = { workspace = true }
+uuid = { workspace = true }
+
+# Scheduling
+tokio-cron-scheduler = "0.10"
 
 # Database
 sled = "0.34"
