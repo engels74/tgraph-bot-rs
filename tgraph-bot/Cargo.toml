@@ -57,6 +57,15 @@ chrono-tz = "0.8"
 
 # Database
 sled = "0.34"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"] }
+
+# HTTP server for admin API
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Metrics and monitoring
+prometheus = "0.13"
 
 [dev-dependencies]
 tokio-test = { workspace = true }

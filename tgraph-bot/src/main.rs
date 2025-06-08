@@ -14,6 +14,12 @@ mod scheduler;
 mod task_manager;
 mod schedule_config;
 mod task_queue;
+mod metrics;
+mod alerting;
+mod persistence;
+mod admin_api;
+mod timezone_support;
+mod monitoring_system;
 
 // Use the command context from tgraph_commands
 type Data = CommandContext;

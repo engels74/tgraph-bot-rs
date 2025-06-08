@@ -925,7 +925,7 @@ impl TaskQueue {
 }
 
 /// Statistics about the task queue
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QueueStats {
     /// Total number of tasks in the system
     pub total_tasks: usize,
