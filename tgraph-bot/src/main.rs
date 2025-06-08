@@ -13,6 +13,7 @@ mod discord;
 mod scheduler;
 mod task_manager;
 mod schedule_config;
+mod task_queue;
 
 // Use the command context from tgraph_commands
 type Data = CommandContext;

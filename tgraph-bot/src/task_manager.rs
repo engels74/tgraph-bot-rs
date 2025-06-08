@@ -17,7 +17,7 @@ use uuid::Uuid;
 pub type TaskId = Uuid;
 
 /// Priority levels for tasks
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub enum TaskPriority {
     /// Low priority tasks - can be cancelled immediately on shutdown
     Low = 0,
